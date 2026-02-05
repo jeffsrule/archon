@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Archon</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Courier New', monospace;
+        }
+        
+        #gameCanvas {
+            border: 2px solid #fff;
+            max-width: 95vw;
+            max-height: 95vh;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+        }
+        
+        #gameInfo {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: #fff;
+            font-size: 12px;
+        }
+        
+        #controls {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            color: #fff;
+            font-size: 10px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas" width="960" height="720"></canvas>
+    <div id="gameInfo">
+        <div>Archon Clone</div>
+        <div id="fps">FPS: 0</div>
+        <div id="gamepadStatus">Gamepad: Not connected</div>
+    </div>
+    <div id="controls">
+        <div>Controls:</div>
+        <div>Arrow Keys: Move</div>
+        <div>Space: Action</div>
+        <div>Gamepad: Use D-pad and buttons</div>
+    </div>
+    
+    <script src="game.js"></script>
+</body>
+</html>
