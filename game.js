@@ -102,6 +102,12 @@ class ArchonGame {
         // Initialize
         this.init();
     }
+
+    getUnitStats(type) {
+        if (type === 'Knight') return { movementType: 'GROUND', moveRange: 3 };
+        if (type === 'Goblin') return { movementType: 'GROUND', moveRange: 3 };
+        return { movementType: null, moveRange: 0 };
+    }
     
     init() {
         // Set up event listeners
@@ -234,11 +240,8 @@ class ArchonGame {
         const spriteSize = this.combat.spriteSize ?? this.getCombatSpriteSize(arena.arenaW, arena.arenaH);
         const half = spriteSize / 2;
 
-        const aActor = this.combat.attacker;
-        const dActor = this.combat.defender;
-
-        const lightActor = aActor?.side === 'light' ? aActor : (dActor?.side === 'light' ? dActor : null);
-        const darkActor = aActor?.side === 'dark' ? aActor : (dActor?.side === 'dark' ? dActor : null);
+        const lightActor = this.combat.lightActor;
+        const darkActor = this.combat.darkActor;
 
         const updateAttackTimer = (actor) => {
             if (!actor?.isAttacking) return;
@@ -250,8 +253,8 @@ class ArchonGame {
             }
         };
 
-        updateAttackTimer(aActor);
-        updateAttackTimer(dActor);
+        updateAttackTimer(lightActor);
+        updateAttackTimer(darkActor);
 
         const startAttack = (actor) => {
             if (!actor) return;
@@ -302,20 +305,20 @@ class ArchonGame {
         };
 
         {
-            const a = this.combat.attacker;
+            const l = lightActor;
             let dx = 0;
             let dy = 0;
-            if (!a?.isAttacking) {
+            if (!l?.isAttacking) {
                 if (this.keys['KeyA']) dx -= 1;
                 if (this.keys['KeyD']) dx += 1;
                 if (this.keys['KeyW']) dy -= 1;
                 if (this.keys['KeyS']) dy += 1;
             }
-            moveActor(a, dx, dy);
+            moveActor(l, dx, dy);
         }
 
         {
-            const d = this.combat.defender;
+            const d = darkActor;
             let dx = 0;
             let dy = 0;
             if (!d?.isAttacking) {
@@ -375,34 +378,28 @@ class ArchonGame {
             return defenderActor.currentHP <= 0;
         };
 
-        if (aActor && dActor) {
-            if (aActor.side !== dActor.side) {
-                const attackerKilled = tryApplyAttackDamage(aActor, dActor);
-                if (attackerKilled) {
-                    const loserId = this.combat.defenderId;
-                    const winnerId = this.combat.attackerId;
-                    this.resolveCombat({ winnerId, loserId });
-                    return;
-                }
+        if (lightActor && darkActor) {
+            const darkKilled = tryApplyAttackDamage(lightActor, darkActor);
+            if (darkKilled) {
+                this.resolveCombat({ winnerId: this.combat.lightPieceId, loserId: this.combat.darkPieceId });
+                return;
+            }
 
-                const defenderKilled = tryApplyAttackDamage(dActor, aActor);
-                if (defenderKilled) {
-                    const loserId = this.combat.attackerId;
-                    const winnerId = this.combat.defenderId;
-                    this.resolveCombat({ winnerId, loserId });
-                    return;
-                }
+            const lightKilled = tryApplyAttackDamage(darkActor, lightActor);
+            if (lightKilled) {
+                this.resolveCombat({ winnerId: this.combat.darkPieceId, loserId: this.combat.lightPieceId });
+                return;
             }
         }
 
         if (this.keys['Digit1']) {
             this.keys['Digit1'] = false;
-            this.resolveCombat({ winnerId: this.combat.attackerId, loserId: this.combat.defenderId });
+            this.resolveCombat({ winnerId: this.combat.lightPieceId, loserId: this.combat.darkPieceId });
             return;
         }
         if (this.keys['Digit2']) {
             this.keys['Digit2'] = false;
-            this.resolveCombat({ winnerId: this.combat.defenderId, loserId: this.combat.attackerId });
+            this.resolveCombat({ winnerId: this.combat.darkPieceId, loserId: this.combat.lightPieceId });
             return;
         }
         if (this.keys['Digit3']) {
@@ -449,8 +446,8 @@ class ArchonGame {
 
         this.drawCombatHPBars();
 
-        const attacker = this.getPieceById(this.combat.attackerId);
-        const defender = this.getPieceById(this.combat.defenderId);
+        const lightPiece = this.getPieceById(this.combat.lightPieceId);
+        const darkPiece = this.getPieceById(this.combat.darkPieceId);
         const squareLabel = this.xyToGridPos(this.combat.square.x, this.combat.square.y);
 
         const spriteSize = this.combat.spriteSize ?? this.getCombatSpriteSize(arenaW, arenaH);
@@ -459,15 +456,15 @@ class ArchonGame {
         this.ctx.fillText(`Square: ${squareLabel}`, this.width / 2, ay + 52);
 
         this.ctx.font = '14px Courier New';
-        this.ctx.fillText('Press 1: attacker wins   2: defender wins   3: mutual destruction', this.width / 2, ay + arenaH - 34);
-        this.ctx.fillText('WASD: move attacker (hold 2 keys for diagonals)   Arrows: move defender (hold 2 keys for diagonals)', this.width / 2, ay + arenaH - 16);
+        this.ctx.fillText('Press 1: Light wins   2: Dark wins   3: mutual destruction', this.width / 2, ay + arenaH - 34);
+        this.ctx.fillText('WASD: move Light (hold 2 keys for diagonals)   Arrows: move Dark (hold 2 keys for diagonals)', this.width / 2, ay + arenaH - 16);
 
         const leftX = ax + Math.floor(arenaW * 0.25);
         const rightX = ax + Math.floor(arenaW * 0.75);
         const midY = ay + Math.floor(arenaH * 0.55);
 
-        const combatAttacker = this.combat.attacker ?? { x: leftX, y: midY, facing: attacker?.facing ?? 'E' };
-        const combatDefender = this.combat.defender ?? { x: rightX, y: midY, facing: defender?.facing ?? 'W' };
+        const combatLight = this.combat.lightActor ?? { x: leftX, y: midY, facing: lightPiece?.facing ?? 'E' };
+        const combatDark = this.combat.darkActor ?? { x: rightX, y: midY, facing: darkPiece?.facing ?? 'W' };
 
         const frameFromActor = (actor) => {
             if (actor?.isAttacking) return 3;
@@ -476,17 +473,17 @@ class ArchonGame {
             return Math.min(2, Math.floor((t * 10) % 3));
         };
 
-        if (attacker) {
-            this.drawCombatPiece(attacker, combatAttacker.x, combatAttacker.y, spriteSize, combatAttacker.facing, frameFromActor(combatAttacker));
-            this.drawCombatOverlayForPiece(attacker, combatAttacker, spriteSize);
+        if (lightPiece) {
+            this.drawCombatPiece(lightPiece, combatLight.x, combatLight.y, spriteSize, combatLight.facing, frameFromActor(combatLight));
+            this.drawCombatOverlayForPiece(lightPiece, combatLight, spriteSize);
             this.ctx.fillStyle = '#fff';
-            this.ctx.fillText(`Attacker: ${attacker.type} (${attacker.side})`, combatAttacker.x, combatAttacker.y + spriteSize / 2 + 22);
+            this.ctx.fillText(`Light: ${lightPiece.type}`, combatLight.x, combatLight.y + spriteSize / 2 + 22);
         }
-        if (defender) {
-            this.drawCombatPiece(defender, combatDefender.x, combatDefender.y, spriteSize, combatDefender.facing, frameFromActor(combatDefender));
-            this.drawCombatOverlayForPiece(defender, combatDefender, spriteSize);
+        if (darkPiece) {
+            this.drawCombatPiece(darkPiece, combatDark.x, combatDark.y, spriteSize, combatDark.facing, frameFromActor(combatDark));
+            this.drawCombatOverlayForPiece(darkPiece, combatDark, spriteSize);
             this.ctx.fillStyle = '#fff';
-            this.ctx.fillText(`Defender: ${defender.type} (${defender.side})`, combatDefender.x, combatDefender.y + spriteSize / 2 + 22);
+            this.ctx.fillText(`Dark: ${darkPiece.type}`, combatDark.x, combatDark.y + spriteSize / 2 + 22);
         }
     }
 
@@ -508,11 +505,8 @@ class ArchonGame {
     drawCombatHPBars() {
         if (!this.combat) return;
 
-        const a = this.combat.attacker;
-        const d = this.combat.defender;
-
-        const lightActor = a?.side === 'light' ? a : (d?.side === 'light' ? d : null);
-        const darkActor = a?.side === 'dark' ? a : (d?.side === 'dark' ? d : null);
+        const lightActor = this.combat.lightActor;
+        const darkActor = this.combat.darkActor;
 
         const pad = 15;
         const barW = 18;
@@ -669,15 +663,23 @@ class ArchonGame {
         const defenderPiece = this.getPieceById(capture.defenderId);
         const defaultHP = 20;
 
+        const lightPiece = attackerPiece?.side === 'light' ? attackerPiece : defenderPiece;
+        const darkPiece = attackerPiece?.side === 'dark' ? attackerPiece : defenderPiece;
+
+        const lightPieceId = lightPiece?.id;
+        const darkPieceId = darkPiece?.id;
+
         this.combat = {
             attackerId: capture.attackerId,
             defenderId: capture.defenderId,
+            lightPieceId,
+            darkPieceId,
             square: capture.square,
             canvasRestore,
             arena,
             spriteSize,
-            attacker: { x: leftX, y: midY, facing: 'E', side: attackerPiece?.side, maxHP: defaultHP, currentHP: defaultHP, walkAnimTime: 0, isMoving: false, isAttacking: false, attackTimeLeft: 0, didDamageThisAttack: false },
-            defender: { x: rightX, y: midY, facing: 'W', side: defenderPiece?.side, maxHP: defaultHP, currentHP: defaultHP, walkAnimTime: 0, isMoving: false, isAttacking: false, attackTimeLeft: 0, didDamageThisAttack: false }
+            lightActor: { x: leftX, y: midY, facing: 'E', side: 'light', maxHP: defaultHP, currentHP: defaultHP, walkAnimTime: 0, isMoving: false, isAttacking: false, attackTimeLeft: 0, didDamageThisAttack: false },
+            darkActor: { x: rightX, y: midY, facing: 'W', side: 'dark', maxHP: defaultHP, currentHP: defaultHP, walkAnimTime: 0, isMoving: false, isAttacking: false, attackTimeLeft: 0, didDamageThisAttack: false }
         };
     }
 
@@ -698,6 +700,11 @@ class ArchonGame {
             if (winner) {
                 winner.col = x;
                 winner.row = y;
+
+                if (winner.side === 'dark') {
+                    winner.facing = 'W';
+                    winner.walkAnimTime = 0;
+                }
 
                 const stack = this.board[x][y];
                 if (!stack.includes(winner)) stack.push(winner);
@@ -1067,8 +1074,12 @@ class ArchonGame {
         if (hasAny) {
             const friendly = stack.find(p => p.side === this.currentSide);
             if (friendly) {
-                const friendlyKnight = stack.find(p => p.side === this.currentSide && p.type === 'Knight');
-                this.selectedPiece = friendlyKnight ?? friendly;
+                const friendlyMovable = stack.find(p => {
+                    if (p.side !== this.currentSide) return false;
+                    const s = this.getUnitStats(p.type);
+                    return s.movementType && (s.moveRange ?? 0) > 0;
+                });
+                this.selectedPiece = friendlyMovable ?? friendly;
                 return;
             }
 
@@ -1084,12 +1095,8 @@ class ArchonGame {
             this.flashIllegal(x, y);
             return;
         }
-        if (this.selectedPiece.type !== 'Knight') {
-            this.flashIllegal(x, y);
-            return;
-        }
 
-        const result = this.tryStartKnightMove(this.selectedPiece, x, y);
+        const result = this.tryStartGroundMove(this.selectedPiece, x, y);
         if (!result) {
             this.flashIllegal(x, y);
             return;
@@ -1133,7 +1140,9 @@ class ArchonGame {
         const y = this.selectedPiece.row;
         if (!this.isInBounds(x, y)) return;
 
-        this.ctx.strokeStyle = 'rgba(255, 180, 70, 0.95)';
+        this.ctx.strokeStyle = this.selectedPiece.side === 'dark'
+            ? 'rgb(98, 169, 236)'
+            : 'rgba(255, 180, 70, 0.95)';
         this.ctx.lineWidth = 4;
         this.ctx.strokeRect(
             offsetX + x * tileSize + 2,
@@ -1143,42 +1152,47 @@ class ArchonGame {
         );
     }
 
-    tryStartKnightMove(knight, destX, destY) {
+    tryStartGroundMove(piece, destX, destY) {
         if (!this.isInBounds(destX, destY)) return false;
+        const stats = this.getUnitStats(piece?.type);
+        if (stats.movementType !== 'GROUND') return false;
+        const moveRange = stats.moveRange ?? 0;
+        if (moveRange <= 0) return false;
+
         const destStack = this.board[destX][destY];
-        const friendlyOnDest = destStack.find(p => p.side === knight.side);
+        const friendlyOnDest = destStack.find(p => p.side === piece.side);
         if (friendlyOnDest) return false;
 
-        const defender = destStack.find(p => p.side !== knight.side);
+        const defender = destStack.find(p => p.side !== piece.side);
 
         const captureResult = defender
             ? {
                 type: 'capture',
-                attackerId: knight.id,
+                attackerId: piece.id,
                 defenderId: defender.id,
                 square: { x: destX, y: destY }
             }
             : null;
 
-        const startX = knight.col;
-        const startY = knight.row;
+        const startX = piece.col;
+        const startY = piece.row;
 
         const dx = destX - startX;
         const dy = destY - startY;
         const manhattan = Math.abs(dx) + Math.abs(dy);
-        if (manhattan > 3) return false;
+        if (manhattan > moveRange) return false;
 
-        const path = this.buildKnightPath(startX, startY, destX, destY, 3);
+        const path = this.buildKnightPath(startX, startY, destX, destY, moveRange);
         if (!path) return false;
 
         // Remove from occupancy grid during movement.
         const startStack = this.board[startX][startY];
-        const startIndex = startStack.indexOf(knight);
+        const startIndex = startStack.indexOf(piece);
         if (startIndex >= 0) startStack.splice(startIndex, 1);
 
-        knight.state = 'MOVING';
-        knight.remainingMove = path.length;
-        knight.move = {
+        piece.state = 'MOVING';
+        piece.remainingMove = path.length;
+        piece.move = {
             path,
             stepIndex: 0,
             stepT: 0,
@@ -1191,14 +1205,18 @@ class ArchonGame {
         // Initialize render position at the current grid center.
         const layout = this.boardLayout ?? this.computeBoardLayout();
         const startCenter = this.gridToCanvasCenter(startX, startY, layout);
-        knight.renderX = startCenter.x;
-        knight.renderY = startCenter.y;
-        knight.walkAnimTime = 0;
+        piece.renderX = startCenter.x;
+        piece.renderY = startCenter.y;
+        piece.walkAnimTime = 0;
         const firstStep = path[0];
-        knight.facing = this.directionFromDelta(firstStep.x - startX, firstStep.y - startY);
+        piece.facing = this.directionFromDelta(firstStep.x - startX, firstStep.y - startY);
 
         if (captureResult) return captureResult;
-        return { type: 'move', pieceId: knight.id, square: { x: destX, y: destY } };
+        return { type: 'move', pieceId: piece.id, square: { x: destX, y: destY } };
+    }
+
+    tryStartKnightMove(knight, destX, destY) {
+        return this.tryStartGroundMove(knight, destX, destY);
     }
 
     flashIllegal(x, y) {
@@ -1367,7 +1385,6 @@ class ArchonGame {
                     piece.renderX = undefined;
                     piece.renderY = undefined;
                     piece.walkAnimTime = 0;
-                    piece.facing = 'E';
 
                     // Re-occupy the destination square.
                     this.board[piece.col][piece.row].push(piece);
