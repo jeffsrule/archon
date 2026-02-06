@@ -12,6 +12,10 @@ const KNIGHT_SWORD_ANCHORS = {
   NW: { body: { x: 19, y: 28 }, sword: { x: 64, y: 32 } }
 };
 
+const BASE_PROJECTILE_SPEED = 1500;
+
+const DEBUG_COLLISION = false;
+
 class ArchonGame {
     constructor() {
         this.canvas = document.getElementById('gameCanvas');
@@ -95,18 +99,64 @@ class ArchonGame {
             directionOrder: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
         };
 
+        this.wizardSprite = {
+            img: null,
+            loaded: false,
+            cols: 4,
+            rows: 8,
+            frameW: 0,
+            frameH: 0,
+            directionOrder: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+        };
+
+        this.wizardProjectileSprite = {
+            img: null,
+            loaded: false,
+            cols: 1,
+            rows: 8,
+            frameW: 0,
+            frameH: 0,
+            directionOrder: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+        };
+
         this.loadKnightSprite();
         this.loadKnightSwordSprite();
         this.loadGoblinSprite();
+        this.loadWizardSprite();
+        this.loadWizardProjectileSprite();
         
         // Initialize
         this.init();
     }
 
+    getCombatType(type) {
+        if (type === 'Wizard') return 'PROJECTILE';
+        return 'MELEE';
+    }
+
     getUnitStats(type) {
-        if (type === 'Knight') return { movementType: 'GROUND', moveRange: 3 };
-        if (type === 'Goblin') return { movementType: 'GROUND', moveRange: 3 };
-        return { movementType: null, moveRange: 0 };
+        const moveRange = 3;
+
+        if (type === 'Archer') return { moveType: 'WALK', moveRange };
+        if (type === 'Manticore') return { moveType: 'WALK', moveRange };
+        if (type === 'Golem') return { moveType: 'WALK', moveRange };
+        if (type === 'Troll') return { moveType: 'WALK', moveRange };
+        if (type === 'Unicorn') return { moveType: 'WALK', moveRange };
+        if (type === 'Basilisk') return { moveType: 'WALK', moveRange };
+        if (type === 'Knight') return { moveType: 'WALK', moveRange };
+        if (type === 'Goblin') return { moveType: 'WALK', moveRange };
+
+        if (type === 'Valkyrie') return { moveType: 'FLY', moveRange };
+        if (type === 'Banshee') return { moveType: 'FLY', moveRange };
+        if (type === 'Phoenix') return { moveType: 'FLY', moveRange };
+        if (type === 'Shape Shifter') return { moveType: 'FLY', moveRange };
+        if (type === 'Djinn') return { moveType: 'FLY', moveRange };
+        if (type === 'Dragon') return { moveType: 'FLY', moveRange };
+
+        if (type === 'Wizard') return { moveType: 'TELEPORT', moveRange, shotSpeedMultiplier: 0.8 };
+        if (type === 'Sorceress') return { moveType: 'TELEPORT', moveRange };
+
+        return { moveType: null, moveRange: 0 };
     }
     
     init() {
@@ -243,6 +293,14 @@ class ArchonGame {
         const lightActor = this.combat.lightActor;
         const darkActor = this.combat.darkActor;
 
+        const lightPiece = this.getPieceById(this.combat.lightPieceId);
+        const darkPiece = this.getPieceById(this.combat.darkPieceId);
+
+        const lightCombatType = this.getCombatType(lightPiece?.type);
+        const darkCombatType = this.getCombatType(darkPiece?.type);
+
+        if (!this.combat.projectiles) this.combat.projectiles = [];
+
         const updateAttackTimer = (actor) => {
             if (!actor?.isAttacking) return;
             actor.attackTimeLeft = (actor.attackTimeLeft ?? 0) - deltaTime;
@@ -253,8 +311,15 @@ class ArchonGame {
             }
         };
 
+        const updateAttackCooldown = (actor) => {
+            if (!actor) return;
+            actor.attackCooldownLeft = Math.max(0, (actor.attackCooldownLeft ?? 0) - deltaTime);
+        };
+
         updateAttackTimer(lightActor);
         updateAttackTimer(darkActor);
+        updateAttackCooldown(lightActor);
+        updateAttackCooldown(darkActor);
 
         const startAttack = (actor) => {
             if (!actor) return;
@@ -266,15 +331,77 @@ class ArchonGame {
             actor.walkAnimTime = 0;
         };
 
+        const trySpawnWizardProjectile = (actor, ownerSide) => {
+            if (!actor) return;
+            if ((actor.attackCooldownLeft ?? 0) > 0) return;
+
+            startAttack(actor);
+
+            const shooterPiece = ownerSide === 'light' ? lightPiece : darkPiece;
+            const shooterStats = this.getUnitStats(shooterPiece?.type);
+            const shotSpeedMultiplier = shooterStats?.shotSpeedMultiplier ?? 1.0;
+            const projectileSpeed = BASE_PROJECTILE_SPEED * shotSpeedMultiplier;
+
+            const facing = actor.facing ?? (ownerSide === 'dark' ? 'W' : 'E');
+            const v = dirToVec(facing);
+            const len = Math.hypot(v.dx, v.dy) || 1;
+            const ndx = v.dx / len;
+            const ndy = v.dy / len;
+
+            const spawnOff = Math.floor(spriteSize * 0.45);
+            const px = actor.x + ndx * spawnOff;
+            const py = actor.y + ndy * spawnOff;
+
+            const isDiag = v.dx !== 0 && v.dy !== 0;
+            const isHoriz = v.dx !== 0 && v.dy === 0;
+            const isVert = v.dx === 0 && v.dy !== 0;
+
+            let w = 8;
+            let h = 8;
+            if (isHoriz) {
+                w = 6;
+                h = 10;
+            } else if (isVert) {
+                w = 10;
+                h = 6;
+            } else if (isDiag) {
+                w = 8;
+                h = 8;
+            }
+
+            this.combat.projectiles.push({
+                x: px,
+                y: py,
+                vx: ndx,
+                vy: ndy,
+                speed: projectileSpeed,
+                direction: facing,
+                width: w,
+                height: h,
+                damage: 10,
+                ownerSide
+            });
+
+            actor.attackCooldownLeft = 1 / 0.75;
+        };
+
         if (this.keys['Space']) {
             this.keys['Space'] = false;
-            startAttack(lightActor);
+            if (lightCombatType === 'PROJECTILE') {
+                trySpawnWizardProjectile(lightActor, 'light');
+            } else {
+                startAttack(lightActor);
+            }
         }
 
         if (this.keys['Enter'] || this.keys['NumpadEnter']) {
             this.keys['Enter'] = false;
             this.keys['NumpadEnter'] = false;
-            startAttack(darkActor);
+            if (darkCombatType === 'PROJECTILE') {
+                trySpawnWizardProjectile(darkActor, 'dark');
+            } else {
+                startAttack(darkActor);
+            }
         }
 
         const clampToArena = (actor) => {
@@ -335,12 +462,12 @@ class ArchonGame {
         };
 
         const actorHitbox = (actor) => {
-            const s = Math.floor(spriteSize * 0.75 * 0.8);
+            const s = Math.floor(spriteSize * 0.7);
             const hs = s / 2;
             return { x: Math.floor(actor.x - hs), y: Math.floor(actor.y - hs), w: s, h: s };
         };
 
-        const dirToVec = (dir) => {
+        function dirToVec(dir) {
             if (dir === 'N') return { dx: 0, dy: -1 };
             if (dir === 'NE') return { dx: 1, dy: -1 };
             if (dir === 'E') return { dx: 1, dy: 0 };
@@ -349,7 +476,7 @@ class ArchonGame {
             if (dir === 'SW') return { dx: -1, dy: 1 };
             if (dir === 'W') return { dx: -1, dy: 0 };
             return { dx: -1, dy: -1 };
-        };
+        }
 
         const attackZone = (attackerActor) => {
             const { dx, dy } = dirToVec(attackerActor.facing ?? 'E');
@@ -378,16 +505,56 @@ class ArchonGame {
             return defenderActor.currentHP <= 0;
         };
 
-        if (lightActor && darkActor) {
-            const darkKilled = tryApplyAttackDamage(lightActor, darkActor);
-            if (darkKilled) {
-                this.resolveCombat({ winnerId: this.combat.lightPieceId, loserId: this.combat.darkPieceId });
-                return;
+        const projectileHitRadius = spriteSize * 0.35;
+        for (let i = this.combat.projectiles.length - 1; i >= 0; i--) {
+            const p = this.combat.projectiles[i];
+            const s = p.speed ?? BASE_PROJECTILE_SPEED;
+            p.x += p.vx * s * deltaTime;
+            p.y += p.vy * s * deltaTime;
+
+            const pad = 20;
+            if (p.x < arena.ax - pad || p.x > arena.ax + arena.arenaW + pad || p.y < arena.ay - pad || p.y > arena.ay + arena.arenaH + pad) {
+                this.combat.projectiles.splice(i, 1);
+                continue;
             }
 
-            const lightKilled = tryApplyAttackDamage(darkActor, lightActor);
-            if (lightKilled) {
+            const targetActor = p.ownerSide === 'light' ? darkActor : lightActor;
+            if (!targetActor) continue;
+
+            const dx = p.x - targetActor.x;
+            const dy = p.y - targetActor.y;
+            const dist = Math.hypot(dx, dy);
+            if (dist > projectileHitRadius) continue;
+
+            targetActor.currentHP = (targetActor.currentHP ?? 0) - (p.damage ?? 0);
+            this.combat.projectiles.splice(i, 1);
+        }
+
+        if (lightActor && darkActor) {
+            if (lightCombatType === 'MELEE') {
+                const darkKilled = tryApplyAttackDamage(lightActor, darkActor);
+                if (darkKilled) {
+                    this.resolveCombat({ winnerId: this.combat.lightPieceId, loserId: this.combat.darkPieceId });
+                    return;
+                }
+            }
+
+            if (darkCombatType === 'MELEE') {
+                const lightKilled = tryApplyAttackDamage(darkActor, lightActor);
+                if (lightKilled) {
+                    this.resolveCombat({ winnerId: this.combat.darkPieceId, loserId: this.combat.lightPieceId });
+                    return;
+                }
+            }
+
+            const lightHP = lightActor.currentHP ?? 0;
+            const darkHP = darkActor.currentHP ?? 0;
+            if (lightHP <= 0) {
                 this.resolveCombat({ winnerId: this.combat.darkPieceId, loserId: this.combat.lightPieceId });
+                return;
+            }
+            if (darkHP <= 0) {
+                this.resolveCombat({ winnerId: this.combat.lightPieceId, loserId: this.combat.darkPieceId });
                 return;
             }
         }
@@ -466,6 +633,26 @@ class ArchonGame {
         const combatLight = this.combat.lightActor ?? { x: leftX, y: midY, facing: lightPiece?.facing ?? 'E' };
         const combatDark = this.combat.darkActor ?? { x: rightX, y: midY, facing: darkPiece?.facing ?? 'W' };
 
+        if (DEBUG_COLLISION) {
+            const r = spriteSize * 0.35;
+            this.ctx.save();
+            this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
+            this.ctx.lineWidth = 2;
+
+            if (lightPiece) {
+                this.ctx.beginPath();
+                this.ctx.arc(combatLight.x, combatLight.y, r, 0, Math.PI * 2);
+                this.ctx.stroke();
+            }
+            if (darkPiece) {
+                this.ctx.beginPath();
+                this.ctx.arc(combatDark.x, combatDark.y, r, 0, Math.PI * 2);
+                this.ctx.stroke();
+            }
+
+            this.ctx.restore();
+        }
+
         const frameFromActor = (actor) => {
             if (actor?.isAttacking) return 3;
             if (!actor?.isMoving) return 0;
@@ -484,6 +671,13 @@ class ArchonGame {
             this.drawCombatOverlayForPiece(darkPiece, combatDark, spriteSize);
             this.ctx.fillStyle = '#fff';
             this.ctx.fillText(`Dark: ${darkPiece.type}`, combatDark.x, combatDark.y + spriteSize / 2 + 22);
+        }
+
+        if (this.combat.projectiles && this.wizardProjectileSprite.loaded) {
+            const projDrawSize = Math.max(8, Math.floor(spriteSize * 0.55));
+            for (const p of this.combat.projectiles) {
+                this.drawWalkCycleSprite(this.wizardProjectileSprite, p.x, p.y, projDrawSize, p.direction ?? 'E', 0);
+            }
         }
     }
 
@@ -552,6 +746,10 @@ class ArchonGame {
         }
         if (piece.type === 'Goblin' && this.goblinSprite.loaded) {
             this.drawGoblinSprite(cx, cy, spriteSize, facing ?? 'W', frameIndex ?? 0);
+            return;
+        }
+        if (piece.type === 'Wizard' && this.wizardSprite.loaded) {
+            this.drawWizardSprite(cx, cy, spriteSize, facing ?? 'E', frameIndex ?? 0);
             return;
         }
 
@@ -669,6 +867,14 @@ class ArchonGame {
         const lightPieceId = lightPiece?.id;
         const darkPieceId = darkPiece?.id;
 
+        const hpForPiece = (piece) => {
+            if (piece?.type === 'Wizard') return 17;
+            return defaultHP;
+        };
+
+        const lightHP = hpForPiece(lightPiece);
+        const darkHP = hpForPiece(darkPiece);
+
         this.combat = {
             attackerId: capture.attackerId,
             defenderId: capture.defenderId,
@@ -678,8 +884,9 @@ class ArchonGame {
             canvasRestore,
             arena,
             spriteSize,
-            lightActor: { x: leftX, y: midY, facing: 'E', side: 'light', maxHP: defaultHP, currentHP: defaultHP, walkAnimTime: 0, isMoving: false, isAttacking: false, attackTimeLeft: 0, didDamageThisAttack: false },
-            darkActor: { x: rightX, y: midY, facing: 'W', side: 'dark', maxHP: defaultHP, currentHP: defaultHP, walkAnimTime: 0, isMoving: false, isAttacking: false, attackTimeLeft: 0, didDamageThisAttack: false }
+            projectiles: [],
+            lightActor: { x: leftX, y: midY, facing: 'E', side: 'light', maxHP: lightHP, currentHP: lightHP, walkAnimTime: 0, isMoving: false, isAttacking: false, attackTimeLeft: 0, didDamageThisAttack: false, attackCooldownLeft: 0 },
+            darkActor: { x: rightX, y: midY, facing: 'W', side: 'dark', maxHP: darkHP, currentHP: darkHP, walkAnimTime: 0, isMoving: false, isAttacking: false, attackTimeLeft: 0, didDamageThisAttack: false, attackCooldownLeft: 0 }
         };
     }
 
@@ -912,6 +1119,11 @@ class ArchonGame {
                 continue;
             }
 
+            if (piece.type === 'Wizard' && this.wizardSprite.loaded) {
+                this.drawWizardSprite(cx, cy, tileSize, piece.facing ?? 'E', 0);
+                continue;
+            }
+
             const radius = Math.max(10, Math.floor(tileSize * 0.32));
 
             this.ctx.fillStyle = piece.side === 'dark'
@@ -993,6 +1205,60 @@ class ArchonGame {
             [4],
             [8]
         );
+    }
+
+    loadWizardSprite() {
+        const candidates = [
+            'assets/Wizard%20Walk%20Cycle.png',
+            'assets/Wizard Walk Cycle.png'
+        ];
+
+        this.loadWalkCycleSpriteSheet(
+            this.wizardSprite,
+            candidates,
+            [4, 3],
+            [8]
+        );
+    }
+
+    loadWizardProjectileSprite() {
+        const candidates = [
+            'assets/Wizard%20Projectile.png',
+            'assets/Wizard Projectile.png'
+        ];
+
+        const img = new Image();
+
+        let candidateIndex = 0;
+        const tryNext = () => {
+            if (candidateIndex >= candidates.length) {
+                this.wizardProjectileSprite.loaded = false;
+                return;
+            }
+            img.src = candidates[candidateIndex];
+            candidateIndex++;
+        };
+
+        img.onload = () => {
+            const frameH = img.height / 8;
+            if (!Number.isInteger(frameH)) {
+                this.wizardProjectileSprite.loaded = false;
+                return;
+            }
+
+            this.wizardProjectileSprite.img = img;
+            this.wizardProjectileSprite.cols = 1;
+            this.wizardProjectileSprite.rows = 8;
+            this.wizardProjectileSprite.frameW = img.width;
+            this.wizardProjectileSprite.frameH = frameH;
+            this.wizardProjectileSprite.loaded = this.wizardProjectileSprite.frameW > 0 && this.wizardProjectileSprite.frameH > 0;
+        };
+
+        img.onerror = () => {
+            tryNext();
+        };
+
+        tryNext();
     }
 
     loadWalkCycleSpriteSheet(sprite, candidates, possibleCols, possibleRows) {
@@ -1077,7 +1343,7 @@ class ArchonGame {
                 const friendlyMovable = stack.find(p => {
                     if (p.side !== this.currentSide) return false;
                     const s = this.getUnitStats(p.type);
-                    return s.movementType && (s.moveRange ?? 0) > 0;
+                    return s.moveType && (s.moveRange ?? 0) > 0;
                 });
                 this.selectedPiece = friendlyMovable ?? friendly;
                 return;
@@ -1096,7 +1362,7 @@ class ArchonGame {
             return;
         }
 
-        const result = this.tryStartGroundMove(this.selectedPiece, x, y);
+        const result = this.tryStartMove(this.selectedPiece, x, y);
         if (!result) {
             this.flashIllegal(x, y);
             return;
@@ -1152,10 +1418,21 @@ class ArchonGame {
         );
     }
 
-    tryStartGroundMove(piece, destX, destY) {
+    tryStartMove(piece, destX, destY) {
+        const stats = this.getUnitStats(piece?.type);
+        const moveType = stats.moveType;
+        if (!moveType) return false;
+
+        if (moveType === 'WALK') return this.tryStartWalkMove(piece, destX, destY);
+        if (moveType === 'FLY') return this.tryStartFlyMove(piece, destX, destY);
+        if (moveType === 'TELEPORT') return this.tryStartTeleportMove(piece, destX, destY);
+        return false;
+    }
+
+    tryStartWalkMove(piece, destX, destY) {
         if (!this.isInBounds(destX, destY)) return false;
         const stats = this.getUnitStats(piece?.type);
-        if (stats.movementType !== 'GROUND') return false;
+        if (stats.moveType !== 'WALK') return false;
         const moveRange = stats.moveRange ?? 0;
         if (moveRange <= 0) return false;
 
@@ -1215,8 +1492,127 @@ class ArchonGame {
         return { type: 'move', pieceId: piece.id, square: { x: destX, y: destY } };
     }
 
+    tryStartFlyMove(piece, destX, destY) {
+        if (!this.isInBounds(destX, destY)) return false;
+        const stats = this.getUnitStats(piece?.type);
+        if (stats.moveType !== 'FLY') return false;
+        const moveRange = stats.moveRange ?? 0;
+        if (moveRange <= 0) return false;
+
+        const startX = piece.col;
+        const startY = piece.row;
+
+        const dx = destX - startX;
+        const dy = destY - startY;
+        const dist = Math.max(Math.abs(dx), Math.abs(dy));
+        if (dist <= 0 || dist > moveRange) return false;
+
+        const destStack = this.board[destX][destY];
+        const friendlyOnDest = destStack.find(p => p.side === piece.side);
+        if (friendlyOnDest) return false;
+
+        const defender = destStack.find(p => p.side !== piece.side);
+        const captureResult = defender
+            ? {
+                type: 'capture',
+                attackerId: piece.id,
+                defenderId: defender.id,
+                square: { x: destX, y: destY }
+            }
+            : null;
+
+        // Remove from occupancy grid during movement.
+        const startStack = this.board[startX][startY];
+        const startIndex = startStack.indexOf(piece);
+        if (startIndex >= 0) startStack.splice(startIndex, 1);
+
+        piece.state = 'MOVING';
+        piece.remainingMove = 1;
+        piece.move = {
+            path: [{ x: destX, y: destY }],
+            stepIndex: 0,
+            stepT: 0,
+            stepDuration: 0.18,
+            capture: captureResult,
+            from: { x: startX, y: startY },
+            to: { x: destX, y: destY }
+        };
+
+        // Initialize render position at the current grid center.
+        const layout = this.boardLayout ?? this.computeBoardLayout();
+        const startCenter = this.gridToCanvasCenter(startX, startY, layout);
+        piece.renderX = startCenter.x;
+        piece.renderY = startCenter.y;
+        piece.walkAnimTime = 0;
+        piece.facing = this.directionFromDelta(dx, dy);
+
+        if (captureResult) return captureResult;
+        return { type: 'move', pieceId: piece.id, square: { x: destX, y: destY } };
+    }
+
+    tryStartTeleportMove(piece, destX, destY) {
+        if (!this.isInBounds(destX, destY)) return false;
+        const stats = this.getUnitStats(piece?.type);
+        if (stats.moveType !== 'TELEPORT') return false;
+        const moveRange = stats.moveRange ?? 0;
+        if (moveRange <= 0) return false;
+
+        const startX = piece.col;
+        const startY = piece.row;
+
+        const dx = destX - startX;
+        const dy = destY - startY;
+        const dist = Math.max(Math.abs(dx), Math.abs(dy));
+        if (dist <= 0 || dist > moveRange) return false;
+
+        const destStack = this.board[destX][destY];
+        const friendlyOnDest = destStack.find(p => p.side === piece.side);
+        if (friendlyOnDest) return false;
+
+        const defender = destStack.find(p => p.side !== piece.side);
+        const captureResult = defender
+            ? {
+                type: 'capture',
+                attackerId: piece.id,
+                defenderId: defender.id,
+                square: { x: destX, y: destY }
+            }
+            : null;
+
+        // Remove from start square occupancy.
+        const startStack = this.board[startX][startY];
+        const startIndex = startStack.indexOf(piece);
+        if (startIndex >= 0) startStack.splice(startIndex, 1);
+
+        // Instant move (no movement animation).
+        piece.col = destX;
+        piece.row = destY;
+        piece.state = 'IDLE';
+        piece.move = null;
+        piece.renderX = undefined;
+        piece.renderY = undefined;
+        piece.walkAnimTime = 0;
+        piece.remainingMove = 0;
+        piece.facing = this.directionFromDelta(dx, dy);
+        if (piece.type === 'Wizard') piece.facing = 'E';
+
+        if (!destStack.includes(piece)) destStack.push(piece);
+
+        if (captureResult) {
+            this.startCombat(captureResult);
+            return captureResult;
+        }
+
+        this.endTurn();
+        return { type: 'move', pieceId: piece.id, square: { x: destX, y: destY } };
+    }
+
+    tryStartGroundMove(piece, destX, destY) {
+        return this.tryStartWalkMove(piece, destX, destY);
+    }
+
     tryStartKnightMove(knight, destX, destY) {
-        return this.tryStartGroundMove(knight, destX, destY);
+        return this.tryStartMove(knight, destX, destY);
     }
 
     flashIllegal(x, y) {
@@ -1524,6 +1920,10 @@ class ArchonGame {
 
     drawGoblinSprite(cx, cy, tileSize, facing, frameIndex) {
         this.drawWalkCycleSprite(this.goblinSprite, cx, cy, tileSize, facing, frameIndex);
+    }
+
+    drawWizardSprite(cx, cy, tileSize, facing, frameIndex) {
+        this.drawWalkCycleSprite(this.wizardSprite, cx, cy, tileSize, facing, frameIndex);
     }
 
     drawWalkCycleSprite(sprite, cx, cy, tileSize, facing, frameIndex) {
