@@ -1,5 +1,153 @@
+// ======================================================
+// ARCHON GAME CONFIGURATION
+// ======================================================
+//
+// This section contains all high-level game tuning values
+// and setup data that define how the game behaves.
+// These values are safe to modify without changing engine logic.
+//
+// Sections:
+// 1.Global Combat Scaling
+// 2. Combat Timing Constants
+// 3. Strategy Movement Tuning
+// 4. Initial Board Setup
+// 5. Melee Weapon and Icon attachment data
+//
+// Engine logic begins below in the ArchonGame class.
+// ======================================================
+
 // Archon Clone - Main Game File
 // Vanilla JavaScript ES6 + HTML5 Canvas
+
+// –– Sprite Asset Configuration ––
+//
+// All sprite image paths are defined here.
+// Users can swap sprite sheets without touching engine logic.
+//
+const SPRITE_PATHS = {
+    Knight: {
+        walk: [
+            'assets/Knight Walk Cycle.png'
+        ],
+        attack: [
+            'assets/Knight Attack.png'
+        ]
+    },
+    Goblin: {
+        walk: [
+            'assets/Goblin Walk Cycle.png'
+        ],
+        attack: [
+            'assets/Goblin Attack.png'
+        ]
+    },
+    Wizard: {
+        walk: [
+            'assets/Wizard Walk Cycle.png'
+        ],
+        projectile: [
+            'assets/Wizard Projectile.png'
+        ]
+    },
+    Archer: {
+        walk: [
+            'assets/Archer Walk Cycle.png'
+        ],
+        projectile: [
+            'assets/Archer Projectile.png'
+        ]
+    },
+    Phoenix: {
+        walk: [
+            'assets/Phoenix Walk Cycle.png'
+        ],
+        explosion: [
+            'assets/Phoenix Explosion.png'
+        ]
+    },
+    Banshee: {
+        walk: [
+            'assets/Banshee Walk Cycle.png'
+        ]
+    }
+};
+
+// ---- Global Combat Scaling ----
+//
+// GLOBAL_MAX_HP defines the maximum possible HP value
+// used to scale all combat HP bars visually.
+// Should match the highest maxHP in UNIT_STATS (currently Dragon).
+//
+const GLOBAL_MAX_HP = 23.5;
+
+// ---- Combat Timing Constants ----
+//
+// These control animation timing for aura-based attacks.
+// Adjusting these changes visual feel but not damage math.
+//
+const AURA_EXPAND_DURATION   = 0.20;
+const AURA_HOLD_DURATION     = 1.40;
+const AURA_CONTRACT_DURATION = 0.25;
+
+// ---- Strategy Movement Tuning ----
+//
+// Controls how long each tile step takes on the Strategy board.
+//
+const STRATEGY_STEP_DURATION = 0.18;
+
+// ---- Initial Board Setup ----
+//
+// Defines the starting piece positions for both sides.
+// Positions are in chess-style notation (A1–I9).
+// Engine converts these to row/col internally.
+//
+const INITIAL_LIGHT_SETUP = [
+  { type: 'Valkyrie', pos: 'A1' },
+  { type: 'Archer', pos: 'B1' },
+  { type: 'Golem', pos: 'A2' },
+  { type: 'Knight', pos: 'B2', facing: 'E' },
+  { type: 'Unicorn', pos: 'A3' },
+  { type: 'Knight', pos: 'B3', facing: 'E' },
+  { type: 'Djinn', pos: 'A4' },
+  { type: 'Knight', pos: 'B4', facing: 'E' },
+  { type: 'Wizard', pos: 'A5' },
+  { type: 'Knight', pos: 'B5', facing: 'E' },
+  { type: 'Phoenix', pos: 'A6' },
+  { type: 'Knight', pos: 'B6', facing: 'E' },
+  { type: 'Unicorn', pos: 'A7' },
+  { type: 'Knight', pos: 'B7', facing: 'E' },
+  { type: 'Golem', pos: 'A8' },
+  { type: 'Knight', pos: 'B8', facing: 'E' },
+  { type: 'Valkyrie', pos: 'A9' },
+  { type: 'Archer', pos: 'B9' }
+];
+
+const INITIAL_DARK_SETUP = [
+  { type: 'Manticore', pos: 'H1' },
+  { type: 'Banshee', pos: 'I1' },
+  { type: 'Goblin', pos: 'H2' },
+  { type: 'Troll', pos: 'I2' },
+  { type: 'Goblin', pos: 'H3' },
+  { type: 'Basilisk', pos: 'I3' },
+  { type: 'Goblin', pos: 'H4' },
+  { type: 'Shape Shifter', pos: 'I4' },
+  { type: 'Goblin', pos: 'H5' },
+  { type: 'Sorceress', pos: 'I5' },
+  { type: 'Goblin', pos: 'H6' },
+  { type: 'Dragon', pos: 'I6' },
+  { type: 'Goblin', pos: 'H7' },
+  { type: 'Basilisk', pos: 'I7' },
+  { type: 'Goblin', pos: 'H8' },
+  { type: 'Troll', pos: 'I8' },
+  { type: 'Manticore', pos: 'H9' },
+  { type: 'Banshee', pos: 'I9' }
+];
+
+// ---- Melee Weapon and Icon attachment data ----
+//
+// The 64x64 sprites was not large enough to contain the full attack with Icon and weapon so the weapons are in a 
+// separate PNG file.  This file matches the hand coordinates to the weapon coordinates.
+//
 
 const KNIGHT_SWORD_ANCHORS = {
   N:  { body: { x: 47, y: 14 }, sword: { x: 44, y: 64 } },
@@ -12,9 +160,214 @@ const KNIGHT_SWORD_ANCHORS = {
   NW: { body: { x: 19, y: 28 }, sword: { x: 64, y: 32 } }
 };
 
+const GOBLIN_CLUB_ANCHORS = {
+  N:  { body: { x: 50, y: 20 }, club: { x: 41, y: 33 } },
+  NE: { body: { x: 59, y: 25 }, club: { x: 1, y: 38 } },
+  E:  { body: { x: 49, y: 35 }, club: { x: 2, y: 30 } },
+  SE: { body: { x: 51, y: 51 }, club: { x: 1, y: 29 } },
+  S:  { body: { x: 32, y: 63 }, club: { x: 26, y: 24 } },
+  SW: { body: { x: 12, y: 46 }, club: { x: 39, y: 36 } },
+  W:  { body: { x: 13, y: 36 }, club: { x: 37, y: 35 } },
+  NW: { body: { x: 9, y: 22 }, club: { x: 35, y: 24 } }
+};
+
+const GOBLIN_CLUB_ANCHORS_FOR_OVERLAY = {
+  N:  { body: GOBLIN_CLUB_ANCHORS.N.body,  sword: GOBLIN_CLUB_ANCHORS.N.club },
+  NE: { body: GOBLIN_CLUB_ANCHORS.NE.body, sword: GOBLIN_CLUB_ANCHORS.NE.club },
+  E:  { body: GOBLIN_CLUB_ANCHORS.E.body,  sword: GOBLIN_CLUB_ANCHORS.E.club },
+  SE: { body: GOBLIN_CLUB_ANCHORS.SE.body, sword: GOBLIN_CLUB_ANCHORS.SE.club },
+  S:  { body: GOBLIN_CLUB_ANCHORS.S.body,  sword: GOBLIN_CLUB_ANCHORS.S.club },
+  SW: { body: GOBLIN_CLUB_ANCHORS.SW.body, sword: GOBLIN_CLUB_ANCHORS.SW.club },
+  W:  { body: GOBLIN_CLUB_ANCHORS.W.body,  sword: GOBLIN_CLUB_ANCHORS.W.club },
+  NW: { body: GOBLIN_CLUB_ANCHORS.NW.body, sword: GOBLIN_CLUB_ANCHORS.NW.club }
+};
+
 const BASE_PROJECTILE_SPEED = 1500;
 
 const DEBUG_COLLISION = false;
+
+// ---- Combat Stats for Each Icon ----
+//
+// Below are the comabt stats that can be changed for each Icon.  Melee is hand combat, Projectile is ranged attack, 
+// Aura is area effect used by Banshee and Explosion is area damage used by the Phoenix
+//
+
+const UNIT_STATS = {
+    Knight: {
+        combatType: 'MELEE',
+        maxHP: 11.5,
+        moveType: 'WALK',
+        moveRange: 3,
+        speed: 240,
+        attackDamage: 5,
+        attackDuration: 0.35,
+        attacksPerSecond: 1.5,
+        meleeWidthH: 2,
+        meleeWidthV: 4
+    },
+    Goblin: {
+        combatType: 'MELEE',
+        maxHP: 11.5,
+        moveType: 'WALK',
+        moveRange: 3,
+        speed: 240,
+        attackDamage: 5,
+        attackDuration: 0.35,
+        attacksPerSecond: 1.5,
+        meleeWidthH: 2,
+        meleeWidthV: 4
+    },
+    Wizard: {
+        combatType: 'PROJECTILE',
+        maxHP: 16.5,
+        moveType: 'TELEPORT',
+        moveRange: 3,
+        speed: 240,
+        attackDamage: 10,
+        attackDuration: 0.35,
+        attacksPerSecond: 0.75,
+        shotSpeedMultiplier: 0.8,
+        projectileWidthH: 6,
+        projectileWidthV: 8
+    },
+    Archer: {
+        combatType: 'PROJECTILE',
+        maxHP: 11.5,
+        moveType: 'WALK',
+        moveRange: 3,
+        speed: 240,
+        attackDamage: 5,
+        attackDuration: 0.35,
+        attacksPerSecond: 1.2,
+        shotSpeedMultiplier: 1.0,
+        projectileWidthH: 6,
+        projectileWidthV: 8
+    },
+    Banshee: {
+        combatType: 'AURA',
+        moveType: 'FLY',
+        moveRange: 3,
+        maxHP: 16.5,
+        speed: 240,
+        attackDamage: 0,
+        attackDuration: 0.35,
+        attacksPerSecond: 1,
+        auraRadiusMultiplier: 0.85,
+        auraDamagePerSecond: 5
+    },
+    Phoenix: {
+        combatType: 'AURA',
+        moveType: 'FLY',
+        moveRange: 3,
+        maxHP: 16.5,
+        speed: 240,
+        attackDamage: 0,
+        attackDuration: 0.35,
+        attacksPerSecond: 1,
+        auraRadiusMultiplier: 0.85,
+        auraDamagePerSecond: 5
+    },
+    Valkyrie: {
+        combatType: 'MELEE',
+        maxHP: 10,
+        moveType: 'FLY',
+        moveRange: 3,
+        speed: 200,
+        attackDamage: 1,
+        attackDuration: 0.35,
+        attacksPerSecond: 1
+    },
+    Manticore: {
+        combatType: 'MELEE',
+        maxHP: 10,
+        moveType: 'WALK',
+        moveRange: 3,
+        speed: 200,
+        attackDamage: 1,
+        attackDuration: 0.35,
+        attacksPerSecond: 1
+    },
+    Golem: {
+        combatType: 'MELEE',
+        maxHP: 10,
+        moveType: 'WALK',
+        moveRange: 3,
+        speed: 200,
+        attackDamage: 1,
+        attackDuration: 0.35,
+        attacksPerSecond: 1
+    },
+    Troll: {
+        combatType: 'MELEE',
+        maxHP: 10,
+        moveType: 'WALK',
+        moveRange: 3,
+        speed: 200,
+        attackDamage: 1,
+        attackDuration: 0.35,
+        attacksPerSecond: 1
+    },
+    Unicorn: {
+        combatType: 'MELEE',
+        maxHP: 10,
+        moveType: 'WALK',
+        moveRange: 3,
+        speed: 200,
+        attackDamage: 1,
+        attackDuration: 0.35,
+        attacksPerSecond: 1
+    },
+    Basilisk: {
+        combatType: 'MELEE',
+        maxHP: 10,
+        moveType: 'WALK',
+        moveRange: 3,
+        speed: 200,
+        attackDamage: 1,
+        attackDuration: 0.35,
+        attacksPerSecond: 1
+    },
+    'Shape Shifter': {
+        combatType: 'MELEE',
+        maxHP: 10,
+        moveType: 'FLY',
+        moveRange: 3,
+        speed: 200,
+        attackDamage: 1,
+        attackDuration: 0.35,
+        attacksPerSecond: 1
+    },
+    Djinn: {
+        combatType: 'MELEE',
+        maxHP: 10,
+        moveType: 'FLY',
+        moveRange: 3,
+        speed: 200,
+        attackDamage: 1,
+        attackDuration: 0.35,
+        attacksPerSecond: 1
+    },
+    Dragon: {
+        combatType: 'MELEE',
+        maxHP: 23.5,
+        moveType: 'FLY',
+        moveRange: 3,
+        speed: 200,
+        attackDamage: 1,
+        attackDuration: 0.35,
+        attacksPerSecond: 1
+    },
+    Sorceress: {
+        combatType: 'MELEE',
+        maxHP: 10,
+        moveType: 'TELEPORT',
+        moveRange: 3,
+        speed: 200,
+        attackDamage: 1,
+        attackDuration: 0.35,
+        attacksPerSecond: 1
+    }
+};
 
 class ArchonGame {
     constructor() {
@@ -22,6 +375,9 @@ class ArchonGame {
         this.ctx = this.canvas.getContext('2d');
         this.width = this.canvas.width;
         this.height = this.canvas.height;
+
+        this.auraCanvas = document.createElement('canvas');
+        this.auraCtx = this.auraCanvas.getContext('2d');
 
         this.strategyCanvasWidth = this.canvas.width;
         this.strategyCanvasHeight = this.canvas.height;
@@ -99,6 +455,16 @@ class ArchonGame {
             directionOrder: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
         };
 
+        this.goblinClubSprite = {
+            img: null,
+            loaded: false,
+            cols: 1,
+            rows: 8,
+            frameW: 64,
+            frameH: 64,
+            directionOrder: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+        };
+
         this.wizardSprite = {
             img: null,
             loaded: false,
@@ -119,44 +485,84 @@ class ArchonGame {
             directionOrder: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
         };
 
+        this.phoenixSprite = {
+            img: null,
+            loaded: false,
+            cols: 4,
+            rows: 8,
+            frameW: 0,
+            frameH: 0,
+            directionOrder: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+        };
+
+        this.archerSprite = {
+            img: null,
+            loaded: false,
+            cols: 4,
+            rows: 8,
+            frameW: 0,
+            frameH: 0,
+            directionOrder: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+        };
+
+        this.archerProjectileSprite = {
+            img: null,
+            loaded: false,
+            cols: 1,
+            rows: 8,
+            frameW: 0,
+            frameH: 0,
+            directionOrder: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+        };
+
+        this.phoenixExplosionSprite = {
+            img: null,
+            loaded: false,
+            cols: 1,
+            rows: 3,
+            frameW: 237,
+            frameH: 128,
+            directionOrder: []
+        };
+
+        this.bansheeSprite = {
+            img: null,
+            loaded: false,
+            cols: 4,
+            rows: 8,
+            frameW: 0,
+            frameH: 0,
+            directionOrder: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+        };
+
         this.loadKnightSprite();
         this.loadKnightSwordSprite();
         this.loadGoblinSprite();
+        this.loadGoblinClubSprite();
         this.loadWizardSprite();
         this.loadWizardProjectileSprite();
+        this.loadPhoenixSprite();
+        this.loadArcherSprite();
+        this.loadArcherProjectileSprite();
+        this.loadPhoenixExplosionSprite();
+        this.loadBansheeSprite();
         
         // Initialize
         this.init();
     }
 
     getCombatType(type) {
-        if (type === 'Wizard') return 'PROJECTILE';
-        return 'MELEE';
+        return UNIT_STATS[type]?.combatType ?? 'MELEE';
     }
 
     getUnitStats(type) {
-        const moveRange = 3;
+        return UNIT_STATS[type] ?? null;
+    }
 
-        if (type === 'Archer') return { moveType: 'WALK', moveRange };
-        if (type === 'Manticore') return { moveType: 'WALK', moveRange };
-        if (type === 'Golem') return { moveType: 'WALK', moveRange };
-        if (type === 'Troll') return { moveType: 'WALK', moveRange };
-        if (type === 'Unicorn') return { moveType: 'WALK', moveRange };
-        if (type === 'Basilisk') return { moveType: 'WALK', moveRange };
-        if (type === 'Knight') return { moveType: 'WALK', moveRange };
-        if (type === 'Goblin') return { moveType: 'WALK', moveRange };
-
-        if (type === 'Valkyrie') return { moveType: 'FLY', moveRange };
-        if (type === 'Banshee') return { moveType: 'FLY', moveRange };
-        if (type === 'Phoenix') return { moveType: 'FLY', moveRange };
-        if (type === 'Shape Shifter') return { moveType: 'FLY', moveRange };
-        if (type === 'Djinn') return { moveType: 'FLY', moveRange };
-        if (type === 'Dragon') return { moveType: 'FLY', moveRange };
-
-        if (type === 'Wizard') return { moveType: 'TELEPORT', moveRange, shotSpeedMultiplier: 0.8 };
-        if (type === 'Sorceress') return { moveType: 'TELEPORT', moveRange };
-
-        return { moveType: null, moveRange: 0 };
+    calculateEffectiveMaxHP(piece) {
+        const type = piece?.type;
+        const baseHP = UNIT_STATS[type]?.maxHP;
+        return baseHP;
     }
     
     init() {
@@ -283,12 +689,11 @@ class ArchonGame {
     updateCombat(deltaTime) {
         if (!this.combat) return;
 
-        const ATTACK_DURATION = 0.35;
-        const ATTACK_DAMAGE = 5;
-
         const arena = this.combat.arena ?? this.computeCombatArena();
         const spriteSize = this.combat.spriteSize ?? this.getCombatSpriteSize(arena.arenaW, arena.arenaH);
         const half = spriteSize / 2;
+
+        this.combat.auraTime = (this.combat.auraTime ?? 0) + deltaTime;
 
         const lightActor = this.combat.lightActor;
         const darkActor = this.combat.darkActor;
@@ -303,11 +708,46 @@ class ArchonGame {
 
         const updateAttackTimer = (actor) => {
             if (!actor?.isAttacking) return;
+            if (actor.auraPhase) return;
+            if ((actor.auraState ?? 'idle') !== 'idle') return;
             actor.attackTimeLeft = (actor.attackTimeLeft ?? 0) - deltaTime;
             if (actor.attackTimeLeft <= 0) {
                 actor.isAttacking = false;
                 actor.attackTimeLeft = 0;
                 actor.didDamageThisAttack = false;
+            }
+        };
+
+        const updatePhoenixExplosion = (actor) => {
+            if (!actor) return;
+            if ((actor.auraState ?? 'idle') === 'idle') return;
+
+            actor.auraTimer = (actor.auraTimer ?? 0) + deltaTime;
+            const t = actor.auraTimer ?? 0;
+
+            if (t < 0.17) {
+                actor.auraState = 'expanding';
+                actor.auraFrameIndex = 0;
+            } else if (t < 0.34) {
+                actor.auraState = 'expanding';
+                actor.auraFrameIndex = 1;
+            } else if (t < 0.50) {
+                actor.auraState = 'expanding';
+                actor.auraFrameIndex = 2;
+            } else if (t < 0.80) {
+                actor.auraState = 'hold';
+                actor.auraFrameIndex = 2;
+            } else if (t < 0.97) {
+                actor.auraState = 'collapsing';
+                actor.auraFrameIndex = 1;
+            } else if (t < 1.14) {
+                actor.auraState = 'collapsing';
+                actor.auraFrameIndex = 0;
+            } else {
+                actor.auraState = 'idle';
+                actor.auraTimer = 0;
+                actor.auraFrameIndex = 0;
+                actor.isAttacking = false;
             }
         };
 
@@ -321,26 +761,99 @@ class ArchonGame {
         updateAttackCooldown(lightActor);
         updateAttackCooldown(darkActor);
 
-        const startAttack = (actor) => {
+        const startAttack = (actor, piece) => {
             if (!actor) return;
+            if ((actor.attackCooldownLeft ?? 0) > 0) return;
             if (actor.isAttacking) return;
+
+            const stats = UNIT_STATS[piece?.type];
+            if (!stats) return;
+            const attackDuration = stats.attackDuration;
+
             actor.isAttacking = true;
-            actor.attackTimeLeft = ATTACK_DURATION;
+            actor.attackTimeLeft = attackDuration;
             actor.didDamageThisAttack = false;
             actor.isMoving = false;
             actor.walkAnimTime = 0;
+            actor.attackCooldownLeft = 1 / stats.attacksPerSecond;
         };
 
-        const trySpawnWizardProjectile = (actor, ownerSide) => {
+        const startAuraAttack = (actor) => {
             if (!actor) return;
             if ((actor.attackCooldownLeft ?? 0) > 0) return;
+            if (actor.isAttacking) return;
 
-            startAttack(actor);
+            actor.isAttacking = true;
+            actor.isMoving = false;
+            actor.walkAnimTime = 0;
+
+            actor.auraTime = 0;
+            actor.auraPhase = 'EXPAND';
+            actor.auraPhaseTime = 0;
+            actor.auraProgress = 0;
+
+            actor.attackCooldownLeft = 0.5;
+        };
+
+        const startPhoenixExplosion = (actor) => {
+            if (!actor) return;
+            if ((actor.attackCooldownLeft ?? 0) > 0) return;
+            if ((actor.auraState ?? 'idle') !== 'idle') return;
+
+            actor.isAttacking = true;
+            actor.isMoving = false;
+            actor.walkAnimTime = 0;
+
+            actor.auraState = 'expanding';
+            actor.auraTimer = 0;
+            actor.auraFrameIndex = 0;
+
+            actor.attackCooldownLeft = 0.5;
+        };
+
+        const updateAuraAttack = (actor) => {
+            if (!actor?.isAttacking) return;
+            if (!actor.auraPhase) return;
+
+            actor.auraTime = (actor.auraTime ?? 0) + deltaTime;
+            actor.auraPhaseTime = (actor.auraPhaseTime ?? 0) + deltaTime;
+
+            if (actor.auraPhase === 'EXPAND') {
+                actor.auraProgress = (actor.auraPhaseTime ?? 0) / AURA_EXPAND_DURATION;
+                if (actor.auraProgress >= 1) {
+                    actor.auraProgress = 1;
+                    actor.auraPhase = 'HOLD';
+                    actor.auraPhaseTime = 0;
+                }
+            } else if (actor.auraPhase === 'HOLD') {
+                actor.auraProgress = 1;
+                if ((actor.auraPhaseTime ?? 0) >= AURA_HOLD_DURATION) {
+                    actor.auraPhase = 'CONTRACT';
+                    actor.auraPhaseTime = 0;
+                }
+            } else if (actor.auraPhase === 'CONTRACT') {
+                actor.auraProgress = 1 - ((actor.auraPhaseTime ?? 0) / AURA_CONTRACT_DURATION);
+                if (actor.auraProgress <= 0) {
+                    actor.isAttacking = false;
+                    actor.auraProgress = 0;
+                    actor.auraPhase = null;
+                    actor.auraPhaseTime = 0;
+                }
+            }
+        };
+
+        const trySpawnProjectile = (actor, ownerSide) => {
+            if (!actor) return;
 
             const shooterPiece = ownerSide === 'light' ? lightPiece : darkPiece;
-            const shooterStats = this.getUnitStats(shooterPiece?.type);
+            const shooterStats = UNIT_STATS[shooterPiece?.type];
+            if (!shooterStats) return;
+            if ((shooterStats?.combatType ?? 'MELEE') !== 'PROJECTILE') return;
             const shotSpeedMultiplier = shooterStats?.shotSpeedMultiplier ?? 1.0;
             const projectileSpeed = BASE_PROJECTILE_SPEED * shotSpeedMultiplier;
+
+            if ((actor.attackCooldownLeft ?? 0) > 0) return;
+            startAttack(actor, shooterPiece);
 
             const facing = actor.facing ?? (ownerSide === 'dark' ? 'W' : 'E');
             const v = dirToVec(facing);
@@ -356,17 +869,19 @@ class ArchonGame {
             const isHoriz = v.dx !== 0 && v.dy === 0;
             const isVert = v.dx === 0 && v.dy !== 0;
 
-            let w = 8;
-            let h = 8;
+            const wH = shooterStats?.projectileWidthH ?? 6;
+            const wV = shooterStats?.projectileWidthV ?? 8;
+            let w = Math.floor((wH + wV) / 2);
+            let h = Math.floor((wH + wV) / 2);
             if (isHoriz) {
-                w = 6;
-                h = 10;
+                w = wH;
+                h = wV;
             } else if (isVert) {
-                w = 10;
-                h = 6;
+                w = wV;
+                h = wH;
             } else if (isDiag) {
-                w = 8;
-                h = 8;
+                w = Math.floor((wH + wV) / 2);
+                h = Math.floor((wH + wV) / 2);
             }
 
             this.combat.projectiles.push({
@@ -378,19 +893,24 @@ class ArchonGame {
                 direction: facing,
                 width: w,
                 height: h,
-                damage: 10,
+                damage: shooterStats.attackDamage,
+                shooterType: shooterPiece?.type,
                 ownerSide
             });
-
-            actor.attackCooldownLeft = 1 / 0.75;
         };
 
         if (this.keys['Space']) {
             this.keys['Space'] = false;
             if (lightCombatType === 'PROJECTILE') {
-                trySpawnWizardProjectile(lightActor, 'light');
+                trySpawnProjectile(lightActor, 'light');
+            } else if (lightCombatType === 'AURA') {
+                if (lightPiece?.type === 'Phoenix') {
+                    startPhoenixExplosion(lightActor);
+                } else {
+                    startAuraAttack(lightActor);
+                }
             } else {
-                startAttack(lightActor);
+                startAttack(lightActor, lightPiece);
             }
         }
 
@@ -398,10 +918,25 @@ class ArchonGame {
             this.keys['Enter'] = false;
             this.keys['NumpadEnter'] = false;
             if (darkCombatType === 'PROJECTILE') {
-                trySpawnWizardProjectile(darkActor, 'dark');
+                trySpawnProjectile(darkActor, 'dark');
+            } else if (darkCombatType === 'AURA') {
+                if (darkPiece?.type === 'Phoenix') {
+                    startPhoenixExplosion(darkActor);
+                } else {
+                    startAuraAttack(darkActor);
+                }
             } else {
-                startAttack(darkActor);
+                startAttack(darkActor, darkPiece);
             }
+        }
+
+        if (lightCombatType === 'AURA') {
+            if (lightPiece?.type === 'Phoenix') updatePhoenixExplosion(lightActor);
+            else updateAuraAttack(lightActor);
+        }
+        if (darkCombatType === 'AURA') {
+            if (darkPiece?.type === 'Phoenix') updatePhoenixExplosion(darkActor);
+            else updateAuraAttack(darkActor);
         }
 
         const clampToArena = (actor) => {
@@ -410,7 +945,7 @@ class ArchonGame {
             actor.y = Math.max(arena.ay + half, Math.min(arena.ay + arena.arenaH - half, actor.y));
         };
 
-        const moveActor = (actor, dx, dy) => {
+        const moveActor = (actor, piece, dx, dy) => {
             if (!actor) return;
             if (dx === 0 && dy === 0) {
                 actor.isMoving = false;
@@ -424,7 +959,8 @@ class ArchonGame {
             const len = Math.hypot(dx, dy);
             const ndx = dx / len;
             const ndy = dy / len;
-            const speed = 240;
+            const stats = UNIT_STATS[piece?.type];
+            const speed = stats?.speed ?? 200;
             actor.x += ndx * speed * deltaTime;
             actor.y += ndy * speed * deltaTime;
             actor.facing = this.directionFromDelta(ndx, ndy);
@@ -441,7 +977,7 @@ class ArchonGame {
                 if (this.keys['KeyW']) dy -= 1;
                 if (this.keys['KeyS']) dy += 1;
             }
-            moveActor(l, dx, dy);
+            moveActor(l, lightPiece, dx, dy);
         }
 
         {
@@ -454,7 +990,7 @@ class ArchonGame {
                 if (this.keys['ArrowUp']) dy -= 1;
                 if (this.keys['ArrowDown']) dy += 1;
             }
-            moveActor(d, dx, dy);
+            moveActor(d, darkPiece, dx, dy);
         }
 
         const rectsOverlap = (r1, r2) => {
@@ -491,7 +1027,7 @@ class ArchonGame {
             return { x: Math.floor(cx - zoneW / 2), y: Math.floor(cy - zoneH / 2), w: zoneW, h: zoneH };
         };
 
-        const tryApplyAttackDamage = (attackerActor, defenderActor) => {
+        const tryApplyAttackDamage = (attackerActor, attackerPiece, defenderActor) => {
             if (!attackerActor?.isAttacking) return false;
             if (attackerActor.didDamageThisAttack) return false;
             if (!defenderActor) return false;
@@ -500,7 +1036,11 @@ class ArchonGame {
             const defHB = actorHitbox(defenderActor);
             if (!rectsOverlap(zone, defHB)) return false;
 
-            defenderActor.currentHP = (defenderActor.currentHP ?? 0) - ATTACK_DAMAGE;
+            const stats = UNIT_STATS[attackerPiece?.type];
+            if (!stats) return false;
+            const damage = stats.attackDamage;
+
+            defenderActor.currentHP = (defenderActor.currentHP ?? 0) - damage;
             attackerActor.didDamageThisAttack = true;
             return defenderActor.currentHP <= 0;
         };
@@ -530,9 +1070,58 @@ class ArchonGame {
             this.combat.projectiles.splice(i, 1);
         }
 
+        {
+            const applyAuraDps = (actor, actorPiece, opponentActor) => {
+                if (!actor?.isAttacking) return;
+                if (actorPiece?.type === 'Phoenix') return;
+                const prog = actor.auraProgress ?? 0;
+                if (prog <= 0.25) return;
+                if (!opponentActor) return;
+
+                const rx = ((spriteSize * 3.5) / 2) * prog;
+                const ry = ((spriteSize * 1.75) / 2) * prog;
+                if (rx <= 0 || ry <= 0) return;
+
+                const dx = opponentActor.x - actor.x;
+                const dy = opponentActor.y - actor.y;
+                const inside = ((dx * dx) / (rx * rx)) + ((dy * dy) / (ry * ry)) <= 1;
+                if (!inside) return;
+
+                const stats = UNIT_STATS[actorPiece?.type];
+                const DPS = stats?.auraDamagePerSecond ?? 12;
+                opponentActor.currentHP = (opponentActor.currentHP ?? 0) - (DPS * deltaTime);
+            };
+
+            if (lightCombatType === 'AURA') applyAuraDps(lightActor, lightPiece, darkActor);
+            if (darkCombatType === 'AURA') applyAuraDps(darkActor, darkPiece, lightActor);
+        }
+
+        {
+            const applyPhoenixExplosionDps = (actor, actorPiece, opponentActor) => {
+                if (actorPiece?.type !== 'Phoenix') return;
+                if (!actor) return;
+                if ((actor.auraState ?? 'idle') === 'idle') return;
+                if (!opponentActor) return;
+
+                const intScale = Math.max(1, Math.floor(spriteSize / 64));
+                const radius = (237 / 2) * intScale * 0.9;
+                const dx = opponentActor.x - actor.x;
+                const dy = opponentActor.y - actor.y;
+                const dist = Math.hypot(dx, dy);
+                if (dist >= radius) return;
+
+                const stats = UNIT_STATS[actorPiece?.type];
+                const DPS = stats?.auraDamagePerSecond ?? 12;
+                opponentActor.currentHP = (opponentActor.currentHP ?? 0) - (DPS * deltaTime);
+            };
+
+            applyPhoenixExplosionDps(lightActor, lightPiece, darkActor);
+            applyPhoenixExplosionDps(darkActor, darkPiece, lightActor);
+        }
+
         if (lightActor && darkActor) {
             if (lightCombatType === 'MELEE') {
-                const darkKilled = tryApplyAttackDamage(lightActor, darkActor);
+                const darkKilled = tryApplyAttackDamage(lightActor, lightPiece, darkActor);
                 if (darkKilled) {
                     this.resolveCombat({ winnerId: this.combat.lightPieceId, loserId: this.combat.darkPieceId });
                     return;
@@ -540,7 +1129,7 @@ class ArchonGame {
             }
 
             if (darkCombatType === 'MELEE') {
-                const lightKilled = tryApplyAttackDamage(darkActor, lightActor);
+                const lightKilled = tryApplyAttackDamage(darkActor, darkPiece, lightActor);
                 if (lightKilled) {
                     this.resolveCombat({ winnerId: this.combat.darkPieceId, loserId: this.combat.lightPieceId });
                     return;
@@ -633,6 +1222,18 @@ class ArchonGame {
         const combatLight = this.combat.lightActor ?? { x: leftX, y: midY, facing: lightPiece?.facing ?? 'E' };
         const combatDark = this.combat.darkActor ?? { x: rightX, y: midY, facing: darkPiece?.facing ?? 'W' };
 
+        if (lightPiece && lightPiece.type === 'Phoenix' && (combatLight?.auraState ?? 'idle') !== 'idle') {
+            this.drawPhoenixExplosion(combatLight, spriteSize);
+        } else if (lightPiece && this.getCombatType(lightPiece.type) === 'AURA' && combatLight?.isAttacking) {
+            this.drawAuraShimmer(combatLight, lightPiece, spriteSize);
+        }
+
+        if (darkPiece && darkPiece.type === 'Phoenix' && (combatDark?.auraState ?? 'idle') !== 'idle') {
+            this.drawPhoenixExplosion(combatDark, spriteSize);
+        } else if (darkPiece && this.getCombatType(darkPiece.type) === 'AURA' && combatDark?.isAttacking) {
+            this.drawAuraShimmer(combatDark, darkPiece, spriteSize);
+        }
+
         if (DEBUG_COLLISION) {
             const r = spriteSize * 0.35;
             this.ctx.save();
@@ -673,10 +1274,23 @@ class ArchonGame {
             this.ctx.fillText(`Dark: ${darkPiece.type}`, combatDark.x, combatDark.y + spriteSize / 2 + 22);
         }
 
-        if (this.combat.projectiles && this.wizardProjectileSprite.loaded) {
+        if (this.combat.projectiles && this.combat.projectiles.length > 0) {
             const projDrawSize = Math.max(8, Math.floor(spriteSize * 0.55));
             for (const p of this.combat.projectiles) {
-                this.drawWalkCycleSprite(this.wizardProjectileSprite, p.x, p.y, projDrawSize, p.direction ?? 'E', 0);
+                const shooterType = p.shooterType;
+                const sprite = shooterType === 'Archer'
+                    ? this.archerProjectileSprite
+                    : this.wizardProjectileSprite;
+
+                if (sprite?.loaded) {
+                    this.drawWalkCycleSprite(sprite, p.x, p.y, projDrawSize, p.direction ?? 'E', 0);
+                } else {
+                    const r = Math.max(3, Math.floor(projDrawSize * 0.18));
+                    this.ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                    this.ctx.beginPath();
+                    this.ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+                    this.ctx.fill();
+                }
             }
         }
     }
@@ -710,14 +1324,18 @@ class ArchonGame {
 
         const drawBar = (x, color, actor) => {
             if (!actor) return;
-            const maxHP = Math.max(1, actor.maxHP ?? 1);
+            const maxHP = Math.max(0, actor.maxHP ?? 0);
             const curHP = Math.max(0, Math.min(maxHP, actor.currentHP ?? maxHP));
-            const ratio = curHP / maxHP;
-            const fillH = Math.floor(barH * ratio);
+
+            const totalHeight = Math.max(0, Math.min(barH, Math.floor(barH * (maxHP / GLOBAL_MAX_HP))));
+            const hpRatio = maxHP > 0 ? Math.max(0, Math.min(1, curHP / maxHP)) : 0;
+            const fillH = Math.floor(totalHeight * hpRatio);
+
+            const barTopY = bottom - totalHeight;
             const fillY = bottom - fillH;
 
             this.ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
-            this.ctx.fillRect(x, top, barW, barH);
+            this.ctx.fillRect(x, barTopY, barW, totalHeight);
 
             this.ctx.fillStyle = color;
             this.ctx.fillRect(x, fillY, barW, fillH);
@@ -752,27 +1370,183 @@ class ArchonGame {
             this.drawWizardSprite(cx, cy, spriteSize, facing ?? 'E', frameIndex ?? 0);
             return;
         }
+        if (piece.type === 'Phoenix' && this.phoenixSprite.loaded) {
+            this.drawWalkCycleSprite(this.phoenixSprite, cx, cy, spriteSize, facing ?? 'E', frameIndex ?? 0);
+            return;
+        }
+        if (piece.type === 'Archer' && this.archerSprite.loaded) {
+            this.drawArcherSprite(cx, cy, spriteSize, facing ?? 'E', frameIndex ?? 0);
+            return;
+        }
+        if (piece.type === 'Banshee' && this.bansheeSprite.loaded) {
+            this.drawWalkCycleSprite(this.bansheeSprite, cx, cy, spriteSize, facing ?? 'W', frameIndex ?? 0);
+            return;
+        }
 
         const radius = Math.max(18, Math.floor(spriteSize * 0.35));
         this.drawCombatMarker(piece, cx, cy, radius);
     }
 
+    drawAuraShimmer(actor, piece, spriteSize) {
+        const prog = Math.max(0, Math.min(1, actor?.auraProgress ?? 0));
+        if (!actor?.isAttacking) return;
+        if (prog <= 0) return;
+
+        const maxW = spriteSize * 3.5;
+        const maxH = spriteSize * 1.75;
+        const curW = maxW * prog;
+        const curH = maxH * prog;
+
+        const halfW = curW / 2;
+
+        const bandProfile = [
+            0.15, 0.35, 0.55, 0.75, 0.95, 1.00, 0.95, 0.75, 0.55, 0.35, 0.15
+        ];
+        const bandCount = bandProfile.length;
+        const bandSpacing = bandCount > 1 ? (curH / (bandCount - 1)) : 0;
+        const lineThickness = Math.max(2, Math.floor(spriteSize * 0.04));
+
+        const color = 'rgb(102,169,229)';
+
+        const pad = 16;
+        const wCanvas = Math.ceil(maxW) + pad * 2;
+        const hCanvas = Math.ceil(maxH) + pad * 2;
+        this.auraCanvas.width = wCanvas;
+        this.auraCanvas.height = hCanvas;
+
+        const aCtx = this.auraCtx;
+        aCtx.clearRect(0, 0, wCanvas, hCanvas);
+
+        const cx = Math.floor(wCanvas / 2);
+        const cy = Math.floor(hCanvas / 2);
+
+        const shimmerPhase = Math.floor((this.combat?.auraTime ?? 0) * 24) % 2;
+        const rects = [];
+
+        for (let i = 0; i < bandCount; i++) {
+            const ratio = bandProfile[i];
+            const bandHalfWidth = halfW * ratio;
+            const y = cy + (i - (bandCount - 1) / 2) * bandSpacing;
+            let x = Math.floor(cx - bandHalfWidth);
+            let w = Math.floor(bandHalfWidth * 2);
+            const yInt = Math.floor(y);
+            const h = lineThickness;
+
+            if (shimmerPhase === 1 && ratio >= 0.75) {
+                x -= 4;
+                w += 8;
+            }
+
+            if (w <= 0) continue;
+            rects.push({ x, y: yInt, w, h });
+        }
+
+        aCtx.save();
+        const prevSmoothing = aCtx.imageSmoothingEnabled;
+        aCtx.imageSmoothingEnabled = false;
+        aCtx.fillStyle = color;
+
+        const bloomOffsets = [-3, -2, -1, 1, 2, 3];
+        aCtx.globalAlpha = 0.08;
+        for (const ox of bloomOffsets) {
+            for (const r of rects) {
+                aCtx.fillRect(r.x + ox, r.y, r.w, r.h);
+            }
+        }
+
+        aCtx.globalAlpha = 1.0;
+        for (const r of rects) {
+            aCtx.fillRect(r.x, r.y, r.w, r.h);
+        }
+
+        aCtx.globalCompositeOperation = 'destination-out';
+        {
+            const type = piece?.type;
+            let sprite = null;
+            if (type === 'Banshee' && this.bansheeSprite?.loaded) sprite = this.bansheeSprite;
+            if (type === 'Wizard' && this.wizardSprite?.loaded) sprite = this.wizardSprite;
+            if (type === 'Archer' && this.archerSprite?.loaded) sprite = this.archerSprite;
+            if (type === 'Knight' && this.knightSprite?.loaded) sprite = this.knightSprite;
+            if (type === 'Goblin' && this.goblinSprite?.loaded) sprite = this.goblinSprite;
+
+            if (sprite?.loaded && sprite.frameW > 0 && sprite.frameH > 0) {
+                const facing = actor.facing ?? (piece?.side === 'dark' ? 'W' : 'E');
+                const dirIndex = sprite.directionOrder.indexOf(facing);
+                const row = dirIndex >= 0 ? dirIndex : 0;
+                const frameIndex = actor?.isAttacking ? 3 : 0;
+
+                const sw = sprite.frameW;
+                const sh = sprite.frameH;
+                const sx = frameIndex * sw;
+                const sy = row * sh;
+
+                const intScale = Math.max(1, Math.floor(Math.min(spriteSize / sw, spriteSize / sh)));
+                const dw = sw * intScale;
+                const dh = sh * intScale;
+                const dx = Math.floor(cx - dw / 2);
+                const dy = Math.floor(cy - dh / 2);
+
+                aCtx.drawImage(sprite.img, sx, sy, sw, sh, dx, dy, dw, dh);
+            } else {
+                const r = Math.max(6, Math.floor(spriteSize * 0.32));
+                aCtx.beginPath();
+                aCtx.arc(cx, cy, r, 0, Math.PI * 2);
+                aCtx.fill();
+            }
+        }
+        aCtx.globalCompositeOperation = 'source-over';
+
+        aCtx.globalCompositeOperation = 'source-atop';
+        aCtx.fillStyle = 'rgba(0,0,0,0.10)';
+        for (let y = 0; y < hCanvas; y += 2) {
+            aCtx.fillRect(0, y, wCanvas, 1);
+        }
+        aCtx.globalCompositeOperation = 'source-over';
+
+        aCtx.imageSmoothingEnabled = prevSmoothing;
+        aCtx.restore();
+
+        this.ctx.save();
+        const prevMainSmoothing = this.ctx.imageSmoothingEnabled;
+        this.ctx.imageSmoothingEnabled = false;
+        const drawX = Math.floor(actor.x - wCanvas / 2);
+        const drawY = Math.floor(actor.y - hCanvas / 2);
+        this.ctx.drawImage(this.auraCanvas, drawX, drawY);
+        this.ctx.imageSmoothingEnabled = prevMainSmoothing;
+        this.ctx.restore();
+    }
+
     drawCombatOverlayForPiece(piece, actor, spriteSize) {
         if (!piece || !actor) return;
         if (!actor.isAttacking) return;
-        if (piece.type !== 'Knight') return;
-        if (!this.knightSprite.loaded) return;
-        if (!this.knightSwordSprite.loaded) return;
 
-        this.drawAnchoredOverlay(
-            this.knightSprite,
-            this.knightSwordSprite,
-            KNIGHT_SWORD_ANCHORS,
-            actor.x,
-            actor.y,
-            spriteSize,
-            actor.facing ?? 'E'
-        );
+        if (piece.type === 'Knight') {
+            if (!this.knightSprite.loaded) return;
+            if (!this.knightSwordSprite.loaded) return;
+            this.drawAnchoredOverlay(
+                this.knightSprite,
+                this.knightSwordSprite,
+                KNIGHT_SWORD_ANCHORS,
+                actor.x,
+                actor.y,
+                spriteSize,
+                actor.facing ?? 'E'
+            );
+        }
+
+        if (piece.type === 'Goblin') {
+            if (!this.goblinSprite.loaded) return;
+            if (!this.goblinClubSprite.loaded) return;
+            this.drawAnchoredOverlay(
+                this.goblinSprite,
+                this.goblinClubSprite,
+                GOBLIN_CLUB_ANCHORS_FOR_OVERLAY,
+                actor.x,
+                actor.y,
+                spriteSize,
+                actor.facing ?? 'E'
+            );
+        }
     }
 
     drawAnchoredOverlay(bodySprite, overlaySprite, anchors, cx, cy, tileSize, facing) {
@@ -859,7 +1633,6 @@ class ArchonGame {
 
         const attackerPiece = this.getPieceById(capture.attackerId);
         const defenderPiece = this.getPieceById(capture.defenderId);
-        const defaultHP = 20;
 
         const lightPiece = attackerPiece?.side === 'light' ? attackerPiece : defenderPiece;
         const darkPiece = attackerPiece?.side === 'dark' ? attackerPiece : defenderPiece;
@@ -867,13 +1640,8 @@ class ArchonGame {
         const lightPieceId = lightPiece?.id;
         const darkPieceId = darkPiece?.id;
 
-        const hpForPiece = (piece) => {
-            if (piece?.type === 'Wizard') return 17;
-            return defaultHP;
-        };
-
-        const lightHP = hpForPiece(lightPiece);
-        const darkHP = hpForPiece(darkPiece);
+        const lightHP = this.calculateEffectiveMaxHP(lightPiece);
+        const darkHP = this.calculateEffectiveMaxHP(darkPiece);
 
         this.combat = {
             attackerId: capture.attackerId,
@@ -885,9 +1653,69 @@ class ArchonGame {
             arena,
             spriteSize,
             projectiles: [],
-            lightActor: { x: leftX, y: midY, facing: 'E', side: 'light', maxHP: lightHP, currentHP: lightHP, walkAnimTime: 0, isMoving: false, isAttacking: false, attackTimeLeft: 0, didDamageThisAttack: false, attackCooldownLeft: 0 },
-            darkActor: { x: rightX, y: midY, facing: 'W', side: 'dark', maxHP: darkHP, currentHP: darkHP, walkAnimTime: 0, isMoving: false, isAttacking: false, attackTimeLeft: 0, didDamageThisAttack: false, attackCooldownLeft: 0 }
+            lightActor: { x: leftX, y: midY, facing: 'E', side: 'light', maxHP: lightHP ?? 0, currentHP: lightHP ?? 0, walkAnimTime: 0, isMoving: false, isAttacking: false, attackTimeLeft: 0, didDamageThisAttack: false, attackCooldownLeft: 0, auraState: 'idle', auraTimer: 0, auraFrameIndex: 0 },
+            darkActor: { x: rightX, y: midY, facing: 'W', side: 'dark', maxHP: darkHP ?? 0, currentHP: darkHP ?? 0, walkAnimTime: 0, isMoving: false, isAttacking: false, attackTimeLeft: 0, didDamageThisAttack: false, attackCooldownLeft: 0, auraState: 'idle', auraTimer: 0, auraFrameIndex: 0 }
         };
+    }
+
+    drawPhoenixExplosion(actor, spriteSize) {
+        if (!actor) return;
+        if (!this.phoenixExplosionSprite?.loaded) return;
+        const frameIndex = Math.max(0, Math.min(2, actor.auraFrameIndex ?? 0));
+
+        const intScale = Math.max(1, Math.floor(spriteSize / 64));
+        const drawW = 237 * intScale;
+        const drawH = 128 * intScale;
+        const dx = Math.floor(actor.x - drawW / 2);
+        const dy = Math.floor(actor.y - drawH / 2);
+
+        const sx = 0;
+        const sy = frameIndex * 128;
+
+        this.ctx.save();
+        const prevSmoothing = this.ctx.imageSmoothingEnabled;
+        this.ctx.imageSmoothingEnabled = false;
+        this.ctx.drawImage(this.phoenixExplosionSprite.img, sx, sy, 237, 128, dx, dy, drawW, drawH);
+        this.ctx.imageSmoothingEnabled = prevSmoothing;
+        this.ctx.restore();
+    }
+
+    loadPhoenixExplosionSprite() {
+        // Paths pulled from SPRITE_PATHS configuration block
+        const candidates = SPRITE_PATHS.Phoenix.explosion;
+
+        const img = new Image();
+
+        let candidateIndex = 0;
+        const tryNext = () => {
+            if (candidateIndex >= candidates.length) {
+                this.phoenixExplosionSprite.loaded = false;
+                return;
+            }
+            img.src = candidates[candidateIndex];
+            candidateIndex++;
+        };
+
+        img.onload = () => {
+            const frameH = img.height / 3;
+            if (!Number.isInteger(frameH)) {
+                this.phoenixExplosionSprite.loaded = false;
+                return;
+            }
+
+            this.phoenixExplosionSprite.img = img;
+            this.phoenixExplosionSprite.cols = 1;
+            this.phoenixExplosionSprite.rows = 3;
+            this.phoenixExplosionSprite.frameW = img.width;
+            this.phoenixExplosionSprite.frameH = frameH;
+            this.phoenixExplosionSprite.loaded = this.phoenixExplosionSprite.frameW > 0 && this.phoenixExplosionSprite.frameH > 0;
+        };
+
+        img.onerror = () => {
+            tryNext();
+        };
+
+        tryNext();
     }
 
     resolveCombat(result) {
@@ -908,10 +1736,17 @@ class ArchonGame {
                 winner.col = x;
                 winner.row = y;
 
-                if (winner.side === 'dark') {
+                if (winner.side === 'light') {
+                    winner.facing = 'E';
+                } else if (winner.side === 'dark') {
                     winner.facing = 'W';
-                    winner.walkAnimTime = 0;
                 }
+
+                winner.state = 'IDLE';
+                winner.walkAnimTime = 0;
+                winner.renderX = undefined;
+                winner.renderY = undefined;
+                winner.remainingMove = 0;
 
                 const stack = this.board[x][y];
                 if (!stack.includes(winner)) stack.push(winner);
@@ -1025,62 +1860,26 @@ class ArchonGame {
     }
 
     createInitialPiecesLight() {
-        return [
-            { side: 'light', type: 'Valkyrie', pos: 'A1' },
-            { side: 'light', type: 'Archer', pos: 'B1' },
-            { side: 'light', type: 'Golem', pos: 'A2' },
-            { side: 'light', type: 'Knight', pos: 'B2', facing: 'E' },
-            { side: 'light', type: 'Unicorn', pos: 'A3' },
-            { side: 'light', type: 'Knight', pos: 'B3', facing: 'E' },
-            { side: 'light', type: 'Djinn', pos: 'A4' },
-            { side: 'light', type: 'Knight', pos: 'B4', facing: 'E' },
-            { side: 'light', type: 'Wizard', pos: 'A5' },
-            { side: 'light', type: 'Knight', pos: 'B5', facing: 'E' },
-            { side: 'light', type: 'Phoenix', pos: 'A6' },
-            { side: 'light', type: 'Knight', pos: 'B6', facing: 'E' },
-            { side: 'light', type: 'Unicorn', pos: 'A7' },
-            { side: 'light', type: 'Knight', pos: 'B7', facing: 'E' },
-            { side: 'light', type: 'Golem', pos: 'A8' },
-            { side: 'light', type: 'Knight', pos: 'B8', facing: 'E' },
-            { side: 'light', type: 'Valkyrie', pos: 'A9' },
-            { side: 'light', type: 'Archer', pos: 'B9' }
-        ].map((p, index) => ({
+        return INITIAL_LIGHT_SETUP.map((p, index) => ({
             id: `p${index}`,
             facing: 'E',
             state: 'IDLE',
             remainingMove: 0,
             walkAnimTime: 0,
+            side: 'light',
             ...p,
             ...this.gridPosToRowCol(p.pos)
         }));
     }
 
     createInitialPiecesDark() {
-        return [
-            { side: 'dark', type: 'Manticore', pos: 'H1' },
-            { side: 'dark', type: 'Banshee', pos: 'I1' },
-            { side: 'dark', type: 'Goblin', pos: 'H2' },
-            { side: 'dark', type: 'Troll', pos: 'I2' },
-            { side: 'dark', type: 'Goblin', pos: 'H3' },
-            { side: 'dark', type: 'Basilisk', pos: 'I3' },
-            { side: 'dark', type: 'Goblin', pos: 'H4' },
-            { side: 'dark', type: 'Shape Shifter', pos: 'I4' },
-            { side: 'dark', type: 'Goblin', pos: 'H5' },
-            { side: 'dark', type: 'Sorceress', pos: 'I5' },
-            { side: 'dark', type: 'Goblin', pos: 'H6' },
-            { side: 'dark', type: 'Dragon', pos: 'I6' },
-            { side: 'dark', type: 'Goblin', pos: 'H7' },
-            { side: 'dark', type: 'Basilisk', pos: 'I7' },
-            { side: 'dark', type: 'Goblin', pos: 'H8' },
-            { side: 'dark', type: 'Troll', pos: 'I8' },
-            { side: 'dark', type: 'Manticore', pos: 'H9' },
-            { side: 'dark', type: 'Banshee', pos: 'I9' }
-        ].map((p, index) => ({
+        return INITIAL_DARK_SETUP.map((p, index) => ({
             id: `d${index}`,
             facing: 'W',
             state: 'IDLE',
             remainingMove: 0,
             walkAnimTime: 0,
+            side: 'dark',
             ...p,
             ...this.gridPosToRowCol(p.pos)
         }));
@@ -1124,6 +1923,42 @@ class ArchonGame {
                 continue;
             }
 
+            if (piece.type === 'Phoenix' && this.phoenixSprite.loaded) {
+                let walkFrame = 0;
+                if (piece.state === 'MOVING') {
+                    const stats = this.getUnitStats(piece?.type);
+                    if (stats?.moveType === 'FLY' && piece.move) {
+                        walkFrame = Math.floor(((piece.move.stepT ?? 0) * 6)) % 3;
+                    } else {
+                        walkFrame = Math.min(2, Math.floor((piece.walkAnimTime * 10) % 3));
+                    }
+                }
+                this.drawWalkCycleSprite(this.phoenixSprite, cx, cy, tileSize, piece.facing ?? 'E', walkFrame);
+                continue;
+            }
+
+            if (piece.type === 'Archer' && this.archerSprite.loaded) {
+                const walkFrame = piece.state === 'MOVING'
+                    ? Math.min(2, Math.floor((piece.walkAnimTime * 10) % 3))
+                    : 0;
+                this.drawArcherSprite(cx, cy, tileSize, piece.facing ?? 'E', walkFrame);
+                continue;
+            }
+
+            if (piece.type === 'Banshee' && this.bansheeSprite.loaded) {
+                let walkFrame = 0;
+                if (piece.state === 'MOVING') {
+                    const stats = this.getUnitStats(piece?.type);
+                    if (stats?.moveType === 'FLY' && piece.move) {
+                        walkFrame = Math.floor(((piece.move.stepT ?? 0) * 6)) % 3;
+                    } else {
+                        walkFrame = Math.min(2, Math.floor((piece.walkAnimTime * 10) % 3));
+                    }
+                }
+                this.drawWalkCycleSprite(this.bansheeSprite, cx, cy, tileSize, piece.facing ?? 'W', walkFrame);
+                continue;
+            }
+
             const radius = Math.max(10, Math.floor(tileSize * 0.32));
 
             this.ctx.fillStyle = piece.side === 'dark'
@@ -1147,10 +1982,8 @@ class ArchonGame {
     }
 
     loadKnightSprite() {
-        const candidates = [
-            'assets/Knight%20Walk%20Cycle.png',
-            'assets/knight_walk.png'
-        ];
+        // Paths pulled from SPRITE_PATHS configuration block
+        const candidates = SPRITE_PATHS.Knight.walk;
 
         this.loadWalkCycleSpriteSheet(
             this.knightSprite,
@@ -1161,11 +1994,8 @@ class ArchonGame {
     }
 
     loadKnightSwordSprite() {
-        const candidates = [
-            'assets/Knight%20Attack.png',
-            'assets/Knight Attack.png',
-            'assets/knight_attack.png'
-        ];
+        // Paths pulled from SPRITE_PATHS configuration block
+        const candidates = SPRITE_PATHS.Knight.attack;
 
         const img = new Image();
 
@@ -1191,13 +2021,121 @@ class ArchonGame {
         tryNext();
     }
 
+    loadGoblinClubSprite() {
+        // Paths pulled from SPRITE_PATHS configuration block
+        const candidates = SPRITE_PATHS.Goblin.attack;
+
+        const img = new Image();
+
+        let candidateIndex = 0;
+        const tryNext = () => {
+            if (candidateIndex >= candidates.length) {
+                this.goblinClubSprite.loaded = false;
+                return;
+            }
+            img.src = candidates[candidateIndex];
+            candidateIndex++;
+        };
+
+        img.onload = () => {
+            const frameH = img.height / 8;
+            if (!Number.isInteger(frameH)) {
+                this.goblinClubSprite.loaded = false;
+                return;
+            }
+
+            this.goblinClubSprite.img = img;
+            this.goblinClubSprite.cols = 1;
+            this.goblinClubSprite.rows = 8;
+            this.goblinClubSprite.frameW = img.width;
+            this.goblinClubSprite.frameH = frameH;
+            this.goblinClubSprite.loaded = this.goblinClubSprite.frameW > 0 && this.goblinClubSprite.frameH > 0;
+        };
+
+        img.onerror = () => {
+            tryNext();
+        };
+
+        tryNext();
+    }
+
+    loadBansheeSprite() {
+        // Paths pulled from SPRITE_PATHS configuration block
+        const candidates = SPRITE_PATHS.Banshee.walk;
+
+        this.loadWalkCycleSpriteSheet(
+            this.bansheeSprite,
+            candidates,
+            [4, 3],
+            [8]
+        );
+    }
+
+    loadPhoenixSprite() {
+        // Paths pulled from SPRITE_PATHS configuration block
+        const candidates = SPRITE_PATHS.Phoenix.walk;
+
+        this.loadWalkCycleSpriteSheet(
+            this.phoenixSprite,
+            candidates,
+            [4, 3],
+            [8]
+        );
+    }
+
+    loadArcherSprite() {
+        // Paths pulled from SPRITE_PATHS configuration block
+        const candidates = SPRITE_PATHS.Archer.walk;
+
+        this.loadWalkCycleSpriteSheet(
+            this.archerSprite,
+            candidates,
+            [4, 3],
+            [8]
+        );
+    }
+
+    loadArcherProjectileSprite() {
+        // Paths pulled from SPRITE_PATHS configuration block
+        const candidates = SPRITE_PATHS.Archer.projectile;
+
+        const img = new Image();
+
+        let candidateIndex = 0;
+        const tryNext = () => {
+            if (candidateIndex >= candidates.length) {
+                this.archerProjectileSprite.loaded = false;
+                return;
+            }
+            img.src = candidates[candidateIndex];
+            candidateIndex++;
+        };
+
+        img.onload = () => {
+            const frameH = img.height / 8;
+            if (!Number.isInteger(frameH)) {
+                this.archerProjectileSprite.loaded = false;
+                return;
+            }
+
+            this.archerProjectileSprite.img = img;
+            this.archerProjectileSprite.cols = 1;
+            this.archerProjectileSprite.rows = 8;
+            this.archerProjectileSprite.frameW = img.width;
+            this.archerProjectileSprite.frameH = frameH;
+            this.archerProjectileSprite.loaded = this.archerProjectileSprite.frameW > 0 && this.archerProjectileSprite.frameH > 0;
+        };
+
+        img.onerror = () => {
+            tryNext();
+        };
+
+        tryNext();
+    }
+
     loadGoblinSprite() {
-        const candidates = [
-            'assets/Goblin%20Walk%20Cycle.png',
-            'assets/Goblin Walk Cycle.png',
-            'assets/Goblin%20Walking%20Cycle.png',
-            'assets/Goblin Walking Cycle.png'
-        ];
+        // Paths pulled from SPRITE_PATHS configuration block
+        const candidates = SPRITE_PATHS.Goblin.walk;
 
         this.loadWalkCycleSpriteSheet(
             this.goblinSprite,
@@ -1208,10 +2146,8 @@ class ArchonGame {
     }
 
     loadWizardSprite() {
-        const candidates = [
-            'assets/Wizard%20Walk%20Cycle.png',
-            'assets/Wizard Walk Cycle.png'
-        ];
+        // Paths pulled from SPRITE_PATHS configuration block
+        const candidates = SPRITE_PATHS.Wizard.walk;
 
         this.loadWalkCycleSpriteSheet(
             this.wizardSprite,
@@ -1222,10 +2158,8 @@ class ArchonGame {
     }
 
     loadWizardProjectileSprite() {
-        const candidates = [
-            'assets/Wizard%20Projectile.png',
-            'assets/Wizard Projectile.png'
-        ];
+        // Paths pulled from SPRITE_PATHS configuration block
+        const candidates = SPRITE_PATHS.Wizard.projectile;
 
         const img = new Image();
 
@@ -1343,7 +2277,7 @@ class ArchonGame {
                 const friendlyMovable = stack.find(p => {
                     if (p.side !== this.currentSide) return false;
                     const s = this.getUnitStats(p.type);
-                    return s.moveType && (s.moveRange ?? 0) > 0;
+                    return s?.moveType && (s.moveRange ?? 0) > 0;
                 });
                 this.selectedPiece = friendlyMovable ?? friendly;
                 return;
@@ -1420,6 +2354,7 @@ class ArchonGame {
 
     tryStartMove(piece, destX, destY) {
         const stats = this.getUnitStats(piece?.type);
+        if (!stats) return false;
         const moveType = stats.moveType;
         if (!moveType) return false;
 
@@ -1432,6 +2367,7 @@ class ArchonGame {
     tryStartWalkMove(piece, destX, destY) {
         if (!this.isInBounds(destX, destY)) return false;
         const stats = this.getUnitStats(piece?.type);
+        if (!stats) return false;
         if (stats.moveType !== 'WALK') return false;
         const moveRange = stats.moveRange ?? 0;
         if (moveRange <= 0) return false;
@@ -1473,7 +2409,7 @@ class ArchonGame {
             path,
             stepIndex: 0,
             stepT: 0,
-            stepDuration: 0.18,
+            stepDuration: STRATEGY_STEP_DURATION,
             capture: captureResult,
             from: { x: startX, y: startY },
             to: { x: path[0].x, y: path[0].y }
@@ -1495,6 +2431,7 @@ class ArchonGame {
     tryStartFlyMove(piece, destX, destY) {
         if (!this.isInBounds(destX, destY)) return false;
         const stats = this.getUnitStats(piece?.type);
+        if (!stats) return false;
         if (stats.moveType !== 'FLY') return false;
         const moveRange = stats.moveRange ?? 0;
         if (moveRange <= 0) return false;
@@ -1532,7 +2469,7 @@ class ArchonGame {
             path: [{ x: destX, y: destY }],
             stepIndex: 0,
             stepT: 0,
-            stepDuration: 0.18,
+            stepDuration: STRATEGY_STEP_DURATION,
             capture: captureResult,
             from: { x: startX, y: startY },
             to: { x: destX, y: destY }
@@ -1553,6 +2490,7 @@ class ArchonGame {
     tryStartTeleportMove(piece, destX, destY) {
         if (!this.isInBounds(destX, destY)) return false;
         const stats = this.getUnitStats(piece?.type);
+        if (!stats) return false;
         if (stats.moveType !== 'TELEPORT') return false;
         const moveRange = stats.moveRange ?? 0;
         if (moveRange <= 0) return false;
@@ -1594,13 +2532,18 @@ class ArchonGame {
         piece.walkAnimTime = 0;
         piece.remainingMove = 0;
         piece.facing = this.directionFromDelta(dx, dy);
-        if (piece.type === 'Wizard') piece.facing = 'E';
 
         if (!destStack.includes(piece)) destStack.push(piece);
 
         if (captureResult) {
             this.startCombat(captureResult);
             return captureResult;
+        }
+
+        if (piece.side === 'light') {
+            piece.facing = 'E';
+        } else if (piece.side === 'dark') {
+            piece.facing = 'W';
         }
 
         this.endTurn();
@@ -1788,6 +2731,11 @@ class ArchonGame {
                     if (capture) {
                         this.startCombat(capture);
                     } else {
+                        if (piece.side === 'light') {
+                            piece.facing = 'E';
+                        } else if (piece.side === 'dark') {
+                            piece.facing = 'W';
+                        }
                         this.endTurn();
                     }
                     continue;
@@ -1924,6 +2872,10 @@ class ArchonGame {
 
     drawWizardSprite(cx, cy, tileSize, facing, frameIndex) {
         this.drawWalkCycleSprite(this.wizardSprite, cx, cy, tileSize, facing, frameIndex);
+    }
+
+    drawArcherSprite(cx, cy, tileSize, facing, frameIndex) {
+        this.drawWalkCycleSprite(this.archerSprite, cx, cy, tileSize, facing, frameIndex);
     }
 
     drawWalkCycleSprite(sprite, cx, cy, tileSize, facing, frameIndex) {
