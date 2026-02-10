@@ -42,6 +42,30 @@ const SPRITE_PATHS = {
             'assets/Goblin Attack.png'
         ]
     },
+    Unicorn: {
+        walk: [
+            'assets/Unicorn Walk Cycle.png'
+        ],
+        projectile: [
+            'assets/Unicorn Projectile.png'
+        ]
+    },
+    Basilisk: {
+        walk: [
+            'assets/Basilisk Walk Cycle.png'
+        ],
+        projectile: [
+            'assets/Basilisk Projectile.png'
+        ]
+    },
+    Sorceress: {
+        walk: [
+            'assets/Sorceress Walk Cycle.png'
+        ],
+        projectile: [
+            'assets/Sorceress Projectile.png'
+        ]
+    },
     Wizard: {
         walk: [
             'assets/Wizard Walk Cycle.png'
@@ -353,24 +377,32 @@ const UNIT_STATS = {
         projectileWidthV: 10
     },
     Unicorn: {
-        combatType: 'MELEE',
-        maxHP: 10,
+        combatType: 'PROJECTILE',
+        baseHP: 8.5,
+        maxHP: 15.5,
         moveType: 'WALK',
-        moveRange: 3,
-        speed: 200,
-        attackDamage: 1,
+        moveRange: 4,
+        speed: 240,
+        attackDamage: 8,
         attackDuration: 0.35,
-        attacksPerSecond: 1
+        attacksPerSecond: 1.0,
+        shotSpeedMultiplier: 0.9,
+        projectileWidthH: 6,
+        projectileWidthV: 8
     },
     Basilisk: {
-        combatType: 'MELEE',
-        maxHP: 10,
+        combatType: 'PROJECTILE',
+        baseHP: 5.5,
+        maxHP: 12.5,
         moveType: 'WALK',
         moveRange: 3,
-        speed: 200,
-        attackDamage: 1,
+        speed: 240,
+        attackDamage: 9,
         attackDuration: 0.35,
-        attacksPerSecond: 1
+        attacksPerSecond: 1.0,
+        shotSpeedMultiplier: 1.0,
+        projectileWidthH: 3,
+        projectileWidthV: 10
     },
     Valkyrie: {
         combatType: 'PROJECTILE',
@@ -422,14 +454,18 @@ const UNIT_STATS = {
         projectileWidthV: 14
     },
     Sorceress: {
-        combatType: 'MELEE',
-        maxHP: 10,
+        combatType: 'PROJECTILE',
+        baseHP: 9.5,
+        maxHP: 16.5,
         moveType: 'TELEPORT',
         moveRange: 3,
-        speed: 200,
-        attackDamage: 1,
+        speed: 240,
+        attackDamage: 10,
         attackDuration: 0.35,
-        attacksPerSecond: 1
+        attacksPerSecond: 0.75,
+        shotSpeedMultiplier: 0.8,
+        projectileWidthH: 6,
+        projectileWidthV: 10
     }
 };
 
@@ -513,6 +549,66 @@ class ArchonGame {
             img: null,
             loaded: false,
             cols: 4,
+            rows: 8,
+            frameW: 0,
+            frameH: 0,
+            directionOrder: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+        };
+
+        this.unicornSprite = {
+            img: null,
+            loaded: false,
+            cols: 4,
+            rows: 8,
+            frameW: 0,
+            frameH: 0,
+            directionOrder: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+        };
+
+        this.unicornProjectileSprite = {
+            img: null,
+            loaded: false,
+            cols: 1,
+            rows: 8,
+            frameW: 0,
+            frameH: 0,
+            directionOrder: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+        };
+
+        this.basiliskSprite = {
+            img: null,
+            loaded: false,
+            cols: 4,
+            rows: 8,
+            frameW: 0,
+            frameH: 0,
+            directionOrder: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+        };
+
+        this.basiliskProjectileSprite = {
+            img: null,
+            loaded: false,
+            cols: 1,
+            rows: 8,
+            frameW: 0,
+            frameH: 0,
+            directionOrder: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+        };
+
+        this.sorceressSprite = {
+            img: null,
+            loaded: false,
+            cols: 4,
+            rows: 8,
+            frameW: 0,
+            frameH: 0,
+            directionOrder: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+        };
+
+        this.sorceressProjectileSprite = {
+            img: null,
+            loaded: false,
+            cols: 1,
             rows: 8,
             frameW: 0,
             frameH: 0,
@@ -723,6 +819,12 @@ class ArchonGame {
         this.loadKnightSwordSprite();
         this.loadGoblinSprite();
         this.loadGoblinClubSprite();
+        this.loadUnicornSprite();
+        this.loadUnicornProjectileSprite();
+        this.loadBasiliskSprite();
+        this.loadBasiliskProjectileSprite();
+        this.loadSorceressSprite();
+        this.loadSorceressProjectileSprite();
         this.loadWizardSprite();
         this.loadWizardProjectileSprite();
         this.loadPhoenixSprite();
@@ -753,6 +855,15 @@ class ArchonGame {
 
     getUnitStats(type) {
         return UNIT_STATS[type] ?? null;
+    }
+
+    getMoveTypeForPiece(piece) {
+        if (!piece) return 'WALK';
+        return (UNIT_STATS[piece.type]?.moveType) || piece.moveType || 'WALK';
+    }
+
+    isTeleportMover(piece) {
+        return this.getMoveTypeForPiece(piece) === 'TELEPORT';
     }
 
     calculateEffectiveMaxHP(piece) {
@@ -1482,6 +1593,12 @@ class ArchonGame {
                             ? this.trollProjectileSprite
                         : shooterType === 'Golem'
                             ? this.golemProjectileSprite
+                        : shooterType === 'Unicorn'
+                            ? this.unicornProjectileSprite
+                        : shooterType === 'Basilisk'
+                            ? this.basiliskProjectileSprite
+                        : shooterType === 'Sorceress'
+                            ? this.sorceressProjectileSprite
                         : shooterType === 'Manticore'
                             ? this.manticoreProjectileSprite
                         : shooterType === 'Dragon'
@@ -1574,6 +1691,21 @@ class ArchonGame {
         }
         if (piece.type === 'Goblin' && this.goblinSprite.loaded) {
             this.drawGoblinSprite(cx, cy, spriteSize, facing ?? 'W', frameIndex ?? 0);
+            return;
+        }
+        if (piece.type === 'Unicorn' && this.unicornSprite.loaded) {
+            const defaultFacing = piece.side === 'dark' ? 'W' : 'E';
+            this.drawWalkCycleSprite(this.unicornSprite, cx, cy, spriteSize, facing ?? defaultFacing, frameIndex ?? 0);
+            return;
+        }
+        if (piece.type === 'Basilisk' && this.basiliskSprite.loaded) {
+            const defaultFacing = piece.side === 'dark' ? 'W' : 'E';
+            this.drawWalkCycleSprite(this.basiliskSprite, cx, cy, spriteSize, facing ?? defaultFacing, frameIndex ?? 0);
+            return;
+        }
+        if (piece.type === 'Sorceress' && this.sorceressSprite.loaded) {
+            const defaultFacing = piece.side === 'dark' ? 'W' : 'E';
+            this.drawWalkCycleSprite(this.sorceressSprite, cx, cy, spriteSize, facing ?? defaultFacing, frameIndex ?? 0);
             return;
         }
         if (piece.type === 'Wizard' && this.wizardSprite.loaded) {
@@ -1948,6 +2080,152 @@ class ArchonGame {
             this.phoenixExplosionSprite.frameW = img.width;
             this.phoenixExplosionSprite.frameH = frameH;
             this.phoenixExplosionSprite.loaded = this.phoenixExplosionSprite.frameW > 0 && this.phoenixExplosionSprite.frameH > 0;
+        };
+
+        img.onerror = () => {
+            tryNext();
+        };
+
+        tryNext();
+    }
+
+    loadSorceressSprite() {
+        const candidates = SPRITE_PATHS.Sorceress.walk;
+
+        this.loadWalkCycleSpriteSheet(
+            this.sorceressSprite,
+            candidates,
+            [4, 3],
+            [8]
+        );
+    }
+
+    loadSorceressProjectileSprite() {
+        const candidates = SPRITE_PATHS.Sorceress.projectile;
+
+        const img = new Image();
+
+        let candidateIndex = 0;
+        const tryNext = () => {
+            if (candidateIndex >= candidates.length) {
+                this.sorceressProjectileSprite.loaded = false;
+                return;
+            }
+            img.src = candidates[candidateIndex];
+            candidateIndex++;
+        };
+
+        img.onload = () => {
+            const frameH = img.height / 8;
+            if (!Number.isInteger(frameH)) {
+                this.sorceressProjectileSprite.loaded = false;
+                return;
+            }
+
+            this.sorceressProjectileSprite.img = img;
+            this.sorceressProjectileSprite.cols = 1;
+            this.sorceressProjectileSprite.rows = 8;
+            this.sorceressProjectileSprite.frameW = img.width;
+            this.sorceressProjectileSprite.frameH = frameH;
+            this.sorceressProjectileSprite.loaded = this.sorceressProjectileSprite.frameW > 0 && this.sorceressProjectileSprite.frameH > 0;
+        };
+
+        img.onerror = () => {
+            tryNext();
+        };
+
+        tryNext();
+    }
+
+    loadBasiliskSprite() {
+        const candidates = SPRITE_PATHS.Basilisk.walk;
+
+        this.loadWalkCycleSpriteSheet(
+            this.basiliskSprite,
+            candidates,
+            [4, 3],
+            [8]
+        );
+    }
+
+    loadBasiliskProjectileSprite() {
+        const candidates = SPRITE_PATHS.Basilisk.projectile;
+
+        const img = new Image();
+
+        let candidateIndex = 0;
+        const tryNext = () => {
+            if (candidateIndex >= candidates.length) {
+                this.basiliskProjectileSprite.loaded = false;
+                return;
+            }
+            img.src = candidates[candidateIndex];
+            candidateIndex++;
+        };
+
+        img.onload = () => {
+            const frameH = img.height / 8;
+            if (!Number.isInteger(frameH)) {
+                this.basiliskProjectileSprite.loaded = false;
+                return;
+            }
+
+            this.basiliskProjectileSprite.img = img;
+            this.basiliskProjectileSprite.cols = 1;
+            this.basiliskProjectileSprite.rows = 8;
+            this.basiliskProjectileSprite.frameW = img.width;
+            this.basiliskProjectileSprite.frameH = frameH;
+            this.basiliskProjectileSprite.loaded = this.basiliskProjectileSprite.frameW > 0 && this.basiliskProjectileSprite.frameH > 0;
+        };
+
+        img.onerror = () => {
+            tryNext();
+        };
+
+        tryNext();
+    }
+
+    loadUnicornSprite() {
+        // Paths pulled from SPRITE_PATHS configuration block
+        const candidates = SPRITE_PATHS.Unicorn.walk;
+
+        this.loadWalkCycleSpriteSheet(
+            this.unicornSprite,
+            candidates,
+            [4, 3],
+            [8]
+        );
+    }
+
+    loadUnicornProjectileSprite() {
+        // Paths pulled from SPRITE_PATHS configuration block
+        const candidates = SPRITE_PATHS.Unicorn.projectile;
+
+        const img = new Image();
+
+        let candidateIndex = 0;
+        const tryNext = () => {
+            if (candidateIndex >= candidates.length) {
+                this.unicornProjectileSprite.loaded = false;
+                return;
+            }
+            img.src = candidates[candidateIndex];
+            candidateIndex++;
+        };
+
+        img.onload = () => {
+            const frameH = img.height / 8;
+            if (!Number.isInteger(frameH)) {
+                this.unicornProjectileSprite.loaded = false;
+                return;
+            }
+
+            this.unicornProjectileSprite.img = img;
+            this.unicornProjectileSprite.cols = 1;
+            this.unicornProjectileSprite.rows = 8;
+            this.unicornProjectileSprite.frameW = img.width;
+            this.unicornProjectileSprite.frameH = frameH;
+            this.unicornProjectileSprite.loaded = this.unicornProjectileSprite.frameW > 0 && this.unicornProjectileSprite.frameH > 0;
         };
 
         img.onerror = () => {
@@ -2354,6 +2632,33 @@ class ArchonGame {
 
             if (piece.type === 'Goblin' && this.goblinSprite.loaded) {
                 this.drawGoblinSprite(cx, cy, tileSize, piece.facing ?? 'W', 0);
+                continue;
+            }
+
+            if (piece.type === 'Unicorn' && this.unicornSprite.loaded) {
+                const walkFrame = piece.state === 'MOVING'
+                    ? Math.min(2, Math.floor((piece.walkAnimTime * 10) % 3))
+                    : 0;
+                const defaultFacing = piece.side === 'dark' ? 'W' : 'E';
+                this.drawWalkCycleSprite(this.unicornSprite, cx, cy, tileSize, piece.facing ?? defaultFacing, walkFrame);
+                continue;
+            }
+
+            if (piece.type === 'Basilisk' && this.basiliskSprite.loaded) {
+                const walkFrame = piece.state === 'MOVING'
+                    ? Math.min(2, Math.floor((piece.walkAnimTime * 10) % 3))
+                    : 0;
+                const defaultFacing = piece.side === 'dark' ? 'W' : 'E';
+                this.drawWalkCycleSprite(this.basiliskSprite, cx, cy, tileSize, piece.facing ?? defaultFacing, walkFrame);
+                continue;
+            }
+
+            if (piece.type === 'Sorceress' && this.sorceressSprite.loaded) {
+                const walkFrame = piece.state === 'MOVING'
+                    ? Math.min(2, Math.floor((piece.walkAnimTime * 10) % 3))
+                    : 0;
+                const defaultFacing = piece.side === 'dark' ? 'W' : 'E';
+                this.drawWalkCycleSprite(this.sorceressSprite, cx, cy, tileSize, piece.facing ?? defaultFacing, walkFrame);
                 continue;
             }
 
@@ -2966,7 +3271,7 @@ class ArchonGame {
     tryStartMove(piece, destX, destY) {
         const stats = this.getUnitStats(piece?.type);
         if (!stats) return false;
-        const moveType = stats.moveType;
+        const moveType = this.getMoveTypeForPiece(piece);
         if (!moveType) return false;
 
         if (moveType === 'WALK') return this.tryStartWalkMove(piece, destX, destY);
@@ -3144,38 +3449,27 @@ class ArchonGame {
         const startIndex = startStack.indexOf(piece);
         if (startIndex >= 0) startStack.splice(startIndex, 1);
 
-        const path = [];
-        {
-            let cx = startX;
-            let cy = startY;
-            while (cx !== destX || cy !== destY) {
-                if (cx !== destX) cx += Math.sign(destX - cx);
-                if (cy !== destY) cy += Math.sign(destY - cy);
-                path.push({ x: cx, y: cy });
-            }
+        // Instant move (no movement animation).
+        piece.col = destX;
+        piece.row = destY;
+        piece.state = 'IDLE';
+        piece.move = null;
+        piece.renderX = undefined;
+        piece.renderY = undefined;
+        piece.walkAnimTime = 0;
+        piece.remainingMove = 0;
+        piece.facing = piece.side === 'dark' ? 'W' : 'E';
+
+        if (!destStack.includes(piece)) destStack.push(piece);
+
+        if (captureResult) {
+            this.startCombat(captureResult);
+            return { type: 'move', pieceId: piece.id, square: { x: destX, y: destY } };
         }
 
-        piece.state = 'MOVING';
-        piece.remainingMove = path.length;
-        piece.move = {
-            path,
-            stepIndex: 0,
-            stepT: 0,
-            stepDuration: STRATEGY_STEP_DURATION,
-            capture: captureResult,
-            from: { x: startX, y: startY },
-            to: { x: path[0].x, y: path[0].y }
-        };
-
-        // Initialize render position at the current grid center.
-        const layout = this.boardLayout ?? this.computeBoardLayout();
-        const startCenter = this.gridToCanvasCenter(startX, startY, layout);
-        piece.renderX = startCenter.x;
-        piece.renderY = startCenter.y;
-        piece.walkAnimTime = 0;
-        piece.facing = this.directionFromDelta(path[0].x - startX, path[0].y - startY);
-
-        if (captureResult) return captureResult;
+        this.selectedPiece = null;
+        this.strategyInputLocked = false;
+        this.endTurn();
         return { type: 'move', pieceId: piece.id, square: { x: destX, y: destY } };
     }
 
@@ -3315,6 +3609,15 @@ class ArchonGame {
     updatePieceMovement(deltaTime) {
         for (const piece of this.pieces) {
             if (piece.state !== 'MOVING') continue;
+
+            if (this.isTeleportMover(piece)) {
+                piece.state = 'IDLE';
+                piece.walkAnimTime = 0;
+                piece.renderX = undefined;
+                piece.renderY = undefined;
+                piece.remainingMove = 0;
+                continue;
+            }
 
             piece.walkAnimTime += deltaTime;
 
