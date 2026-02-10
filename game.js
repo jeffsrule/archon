@@ -130,6 +130,11 @@ const SPRITE_PATHS = {
             'assets/Djinn Projectile.png'
         ]
     },
+    'Shape Shifter': {
+        walk: [
+            'assets/Shapeshifter Walk Cycle.png'
+        ]
+    },
     Phoenix: {
         walk: [
             'assets/Phoenix Walk Cycle.png'
@@ -421,7 +426,7 @@ const UNIT_STATS = {
         combatType: 'MELEE',
         maxHP: 10,
         moveType: 'FLY',
-        moveRange: 3,
+        moveRange: 5,
         speed: 200,
         attackDamage: 1,
         attackDuration: 0.35,
@@ -528,6 +533,8 @@ class ArchonGame {
         this.knightSprite = {
             img: null,
             loaded: false,
+            blueImg: null,
+            blueLoaded: false,
             cols: 4,
             rows: 8,
             frameW: 0,
@@ -538,6 +545,8 @@ class ArchonGame {
         this.knightSwordSprite = {
             img: null,
             loaded: false,
+            blueImg: null,
+            blueLoaded: false,
             cols: 1,
             rows: 8,
             frameW: 64,
@@ -548,6 +557,8 @@ class ArchonGame {
         this.goblinSprite = {
             img: null,
             loaded: false,
+            blueImg: null,
+            blueLoaded: false,
             cols: 4,
             rows: 8,
             frameW: 0,
@@ -558,6 +569,8 @@ class ArchonGame {
         this.unicornSprite = {
             img: null,
             loaded: false,
+            blueImg: null,
+            blueLoaded: false,
             cols: 4,
             rows: 8,
             frameW: 0,
@@ -568,6 +581,8 @@ class ArchonGame {
         this.unicornProjectileSprite = {
             img: null,
             loaded: false,
+            blueImg: null,
+            blueLoaded: false,
             cols: 1,
             rows: 8,
             frameW: 0,
@@ -578,6 +593,8 @@ class ArchonGame {
         this.basiliskSprite = {
             img: null,
             loaded: false,
+            blueImg: null,
+            blueLoaded: false,
             cols: 4,
             rows: 8,
             frameW: 0,
@@ -588,6 +605,8 @@ class ArchonGame {
         this.basiliskProjectileSprite = {
             img: null,
             loaded: false,
+            blueImg: null,
+            blueLoaded: false,
             cols: 1,
             rows: 8,
             frameW: 0,
@@ -598,6 +617,8 @@ class ArchonGame {
         this.sorceressSprite = {
             img: null,
             loaded: false,
+            blueImg: null,
+            blueLoaded: false,
             cols: 4,
             rows: 8,
             frameW: 0,
@@ -608,6 +629,8 @@ class ArchonGame {
         this.sorceressProjectileSprite = {
             img: null,
             loaded: false,
+            blueImg: null,
+            blueLoaded: false,
             cols: 1,
             rows: 8,
             frameW: 0,
@@ -618,6 +641,8 @@ class ArchonGame {
         this.goblinClubSprite = {
             img: null,
             loaded: false,
+            blueImg: null,
+            blueLoaded: false,
             cols: 1,
             rows: 8,
             frameW: 64,
@@ -628,6 +653,8 @@ class ArchonGame {
         this.wizardSprite = {
             img: null,
             loaded: false,
+            blueImg: null,
+            blueLoaded: false,
             cols: 4,
             rows: 8,
             frameW: 0,
@@ -638,6 +665,8 @@ class ArchonGame {
         this.wizardProjectileSprite = {
             img: null,
             loaded: false,
+            blueImg: null,
+            blueLoaded: false,
             cols: 1,
             rows: 8,
             frameW: 0,
@@ -648,6 +677,8 @@ class ArchonGame {
         this.phoenixSprite = {
             img: null,
             loaded: false,
+            blueImg: null,
+            blueLoaded: false,
             cols: 4,
             rows: 8,
             frameW: 0,
@@ -658,6 +689,8 @@ class ArchonGame {
         this.archerSprite = {
             img: null,
             loaded: false,
+            blueImg: null,
+            blueLoaded: false,
             cols: 4,
             rows: 8,
             frameW: 0,
@@ -668,6 +701,8 @@ class ArchonGame {
         this.archerProjectileSprite = {
             img: null,
             loaded: false,
+            blueImg: null,
+            blueLoaded: false,
             cols: 1,
             rows: 8,
             frameW: 0,
@@ -678,6 +713,8 @@ class ArchonGame {
         this.trollSprite = {
             img: null,
             loaded: false,
+            blueImg: null,
+            blueLoaded: false,
             cols: 4,
             rows: 8,
             frameW: 0,
@@ -688,6 +725,8 @@ class ArchonGame {
         this.trollProjectileSprite = {
             img: null,
             loaded: false,
+            blueImg: null,
+            blueLoaded: false,
             cols: 1,
             rows: 8,
             frameW: 0,
@@ -698,6 +737,8 @@ class ArchonGame {
         this.golemSprite = {
             img: null,
             loaded: false,
+            blueImg: null,
+            blueLoaded: false,
             cols: 4,
             rows: 8,
             frameW: 0,
@@ -708,6 +749,8 @@ class ArchonGame {
         this.golemProjectileSprite = {
             img: null,
             loaded: false,
+            blueImg: null,
+            blueLoaded: false,
             cols: 1,
             rows: 8,
             frameW: 0,
@@ -718,6 +761,8 @@ class ArchonGame {
         this.phoenixExplosionSprite = {
             img: null,
             loaded: false,
+            blueImg: null,
+            blueLoaded: false,
             cols: 1,
             rows: 3,
             frameW: 237,
@@ -728,6 +773,8 @@ class ArchonGame {
         this.bansheeSprite = {
             img: null,
             loaded: false,
+            blueImg: null,
+            blueLoaded: false,
             cols: 4,
             rows: 8,
             frameW: 0,
@@ -738,6 +785,8 @@ class ArchonGame {
         this.dragonSprite = {
             img: null,
             loaded: false,
+            blueImg: null,
+            blueLoaded: false,
             cols: 4,
             rows: 8,
             frameW: 0,
@@ -748,6 +797,8 @@ class ArchonGame {
         this.dragonProjectileSprite = {
             img: null,
             loaded: false,
+            blueImg: null,
+            blueLoaded: false,
             cols: 1,
             rows: 8,
             frameW: 0,
@@ -758,6 +809,8 @@ class ArchonGame {
         this.valkyrieSprite = {
             img: null,
             loaded: false,
+            blueImg: null,
+            blueLoaded: false,
             cols: 4,
             rows: 8,
             frameW: 0,
@@ -768,6 +821,8 @@ class ArchonGame {
         this.valkyrieProjectileSprite = {
             img: null,
             loaded: false,
+            blueImg: null,
+            blueLoaded: false,
             cols: 1,
             rows: 8,
             frameW: 0,
@@ -778,6 +833,8 @@ class ArchonGame {
         this.djinnSprite = {
             img: null,
             loaded: false,
+            blueImg: null,
+            blueLoaded: false,
             cols: 4,
             rows: 8,
             frameW: 0,
@@ -788,6 +845,8 @@ class ArchonGame {
         this.djinnProjectileSprite = {
             img: null,
             loaded: false,
+            blueImg: null,
+            blueLoaded: false,
             cols: 1,
             rows: 8,
             frameW: 0,
@@ -798,6 +857,8 @@ class ArchonGame {
         this.manticoreSprite = {
             img: null,
             loaded: false,
+            blueImg: null,
+            blueLoaded: false,
             cols: 4,
             rows: 8,
             frameW: 0,
@@ -808,7 +869,19 @@ class ArchonGame {
         this.manticoreProjectileSprite = {
             img: null,
             loaded: false,
+            blueImg: null,
+            blueLoaded: false,
             cols: 1,
+            rows: 8,
+            frameW: 0,
+            frameH: 0,
+            directionOrder: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+        };
+
+        this.shapeshifterSprite = {
+            img: null,
+            loaded: false,
+            cols: 4,
             rows: 8,
             frameW: 0,
             frameH: 0,
@@ -844,17 +917,162 @@ class ArchonGame {
         this.loadDjinnProjectileSprite();
         this.loadManticoreSprite();
         this.loadManticoreProjectileSprite();
+        this.loadShapeshifterSprite();
         
         // Initialize
         this.init();
     }
 
-    getCombatType(type) {
-        return UNIT_STATS[type]?.combatType ?? 'MELEE';
+    getCombatType(type, pieceId) {
+        const baseType = type;
+        if (this.combat && pieceId != null && baseType === 'Shape Shifter') {
+            if (pieceId === this.combat.lightPieceId && this.combat.lightCopiedType) {
+                return UNIT_STATS[this.combat.lightCopiedType]?.combatType ?? 'MELEE';
+            }
+            if (pieceId === this.combat.darkPieceId && this.combat.darkCopiedType) {
+                return UNIT_STATS[this.combat.darkCopiedType]?.combatType ?? 'MELEE';
+            }
+        }
+        return UNIT_STATS[baseType]?.combatType ?? 'MELEE';
     }
 
-    getUnitStats(type) {
-        return UNIT_STATS[type] ?? null;
+    getUnitStats(type, pieceId) {
+        const baseType = type;
+        if (this.combat && pieceId != null && baseType === 'Shape Shifter') {
+            if (pieceId === this.combat.lightPieceId && this.combat.lightCopiedType) {
+                return UNIT_STATS[this.combat.lightCopiedType] ?? null;
+            }
+            if (pieceId === this.combat.darkPieceId && this.combat.darkCopiedType) {
+                return UNIT_STATS[this.combat.darkCopiedType] ?? null;
+            }
+        }
+        return UNIT_STATS[baseType] ?? null;
+    }
+
+    getEffectiveCombatTypeForPiece(piece) {
+        if (!piece) return null;
+        if (piece.type !== 'Shape Shifter') return piece.type;
+        if (piece.type === 'Shape Shifter' && this.gameState === 'COMBAT') {
+            if (piece.side === 'light' && this.combat?.lightCopiedType) return this.combat.lightCopiedType;
+            if (piece.side === 'dark' && this.combat?.darkCopiedType) return this.combat.darkCopiedType;
+        }
+        return piece.type;
+    }
+
+    getSpriteImageForPiece(spriteObj, piece, preferBlue) {
+        if (preferBlue && spriteObj?.blueLoaded && spriteObj?.blueImg) return spriteObj.blueImg;
+        return spriteObj?.img ?? null;
+    }
+
+    recolorImageToDarkBlue(originalImage) {
+        if (!originalImage) return null;
+
+        const w = originalImage.naturalWidth || originalImage.width;
+        const h = originalImage.naturalHeight || originalImage.height;
+        if (!w || !h) return null;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        if (!ctx) return null;
+
+        ctx.drawImage(originalImage, 0, 0, w, h);
+        const imageData = ctx.getImageData(0, 0, w, h);
+        const data = imageData.data;
+
+        for (let i = 0; i < data.length; i += 4) {
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+            const a = data[i + 3];
+
+            if (a === 0) continue;
+            if (r < 15 && g < 15 && b < 15) continue;
+
+            const { h: hh, s, l } = this.rgbToHsl(r, g, b);
+            const newH = 210;
+            const newS = Math.max(s, 0.6);
+            const rgb = this.hslToRgb(newH, newS, l);
+
+            data[i] = rgb.r;
+            data[i + 1] = rgb.g;
+            data[i + 2] = rgb.b;
+            data[i + 3] = a;
+        }
+
+        ctx.putImageData(imageData, 0, 0);
+
+        const out = new Image();
+        out.src = canvas.toDataURL();
+        return out;
+    }
+
+    rgbToHsl(r, g, b) {
+        const rr = r / 255;
+        const gg = g / 255;
+        const bb = b / 255;
+
+        const max = Math.max(rr, gg, bb);
+        const min = Math.min(rr, gg, bb);
+        const delta = max - min;
+
+        let h = 0;
+        let s = 0;
+        const l = (max + min) / 2;
+
+        if (delta !== 0) {
+            s = delta / (1 - Math.abs(2 * l - 1));
+
+            if (max === rr) {
+                h = ((gg - bb) / delta) % 6;
+            } else if (max === gg) {
+                h = (bb - rr) / delta + 2;
+            } else {
+                h = (rr - gg) / delta + 4;
+            }
+
+            h *= 60;
+            if (h < 0) h += 360;
+        }
+
+        return { h, s, l };
+    }
+
+    hslToRgb(h, s, l) {
+        const hh = ((h % 360) + 360) % 360;
+        const c = (1 - Math.abs(2 * l - 1)) * s;
+        const x = c * (1 - Math.abs(((hh / 60) % 2) - 1));
+        const m = l - c / 2;
+
+        let r1 = 0;
+        let g1 = 0;
+        let b1 = 0;
+
+        if (hh < 60) {
+            r1 = c; g1 = x; b1 = 0;
+        } else if (hh < 120) {
+            r1 = x; g1 = c; b1 = 0;
+        } else if (hh < 180) {
+            r1 = 0; g1 = c; b1 = x;
+        } else if (hh < 240) {
+            r1 = 0; g1 = x; b1 = c;
+        } else if (hh < 300) {
+            r1 = x; g1 = 0; b1 = c;
+        } else {
+            r1 = c; g1 = 0; b1 = x;
+        }
+
+        const r = Math.round((r1 + m) * 255);
+        const g = Math.round((g1 + m) * 255);
+        const b = Math.round((b1 + m) * 255);
+
+        return {
+            r: Math.max(0, Math.min(255, r)),
+            g: Math.max(0, Math.min(255, g)),
+            b: Math.max(0, Math.min(255, b))
+        };
     }
 
     getMoveTypeForPiece(piece) {
@@ -1008,8 +1226,8 @@ class ArchonGame {
         const lightPiece = this.getPieceById(this.combat.lightPieceId);
         const darkPiece = this.getPieceById(this.combat.darkPieceId);
 
-        const lightCombatType = this.getCombatType(lightPiece?.type);
-        const darkCombatType = this.getCombatType(darkPiece?.type);
+        const lightCombatType = this.getCombatType(lightPiece?.type, lightPiece?.id);
+        const darkCombatType = this.getCombatType(darkPiece?.type, darkPiece?.id);
 
         if (!this.combat.projectiles) this.combat.projectiles = [];
 
@@ -1073,7 +1291,7 @@ class ArchonGame {
             if ((actor.attackCooldownLeft ?? 0) > 0) return;
             if (actor.isAttacking) return;
 
-            const stats = UNIT_STATS[piece?.type];
+            const stats = this.getUnitStats(piece?.type, piece?.id);
             if (!stats) return;
             const attackDuration = stats.attackDuration;
 
@@ -1153,7 +1371,16 @@ class ArchonGame {
             if (!actor) return;
 
             const shooterPiece = ownerSide === 'light' ? lightPiece : darkPiece;
-            const shooterStats = UNIT_STATS[shooterPiece?.type];
+            let shooterRenderType = shooterPiece?.type;
+            if (shooterPiece?.type === 'Shape Shifter') {
+                if (ownerSide === 'light' && this.combat?.lightCopiedType) {
+                    shooterRenderType = this.combat.lightCopiedType;
+                }
+                if (ownerSide === 'dark' && this.combat?.darkCopiedType) {
+                    shooterRenderType = this.combat.darkCopiedType;
+                }
+            }
+            const shooterStats = this.getUnitStats(shooterPiece?.type, shooterPiece?.id);
             if (!shooterStats) return;
             if ((shooterStats?.combatType ?? 'MELEE') !== 'PROJECTILE') return;
             const shotSpeedMultiplier = shooterStats?.shotSpeedMultiplier ?? 1.0;
@@ -1201,7 +1428,8 @@ class ArchonGame {
                 width: w,
                 height: h,
                 damage: shooterStats.attackDamage,
-                shooterType: shooterPiece?.type,
+                shooterType: shooterRenderType,
+                fromShapeshifter: shooterPiece?.type === 'Shape Shifter',
                 ownerSide
             });
         };
@@ -1211,7 +1439,8 @@ class ArchonGame {
             if (lightCombatType === 'PROJECTILE') {
                 trySpawnProjectile(lightActor, 'light');
             } else if (lightCombatType === 'AURA') {
-                if (lightPiece?.type === 'Phoenix') {
+                const lightEffectiveType = this.getEffectiveCombatTypeForPiece(lightPiece);
+                if (lightEffectiveType === 'Phoenix') {
                     startPhoenixExplosion(lightActor);
                 } else {
                     startAuraAttack(lightActor);
@@ -1227,7 +1456,8 @@ class ArchonGame {
             if (darkCombatType === 'PROJECTILE') {
                 trySpawnProjectile(darkActor, 'dark');
             } else if (darkCombatType === 'AURA') {
-                if (darkPiece?.type === 'Phoenix') {
+                const darkEffectiveType = this.getEffectiveCombatTypeForPiece(darkPiece);
+                if (darkEffectiveType === 'Phoenix') {
                     startPhoenixExplosion(darkActor);
                 } else {
                     startAuraAttack(darkActor);
@@ -1238,11 +1468,13 @@ class ArchonGame {
         }
 
         if (lightCombatType === 'AURA') {
-            if (lightPiece?.type === 'Phoenix') updatePhoenixExplosion(lightActor);
+            const lightEffectiveType = this.getEffectiveCombatTypeForPiece(lightPiece);
+            if (lightEffectiveType === 'Phoenix') updatePhoenixExplosion(lightActor);
             else updateAuraAttack(lightActor);
         }
         if (darkCombatType === 'AURA') {
-            if (darkPiece?.type === 'Phoenix') updatePhoenixExplosion(darkActor);
+            const darkEffectiveType = this.getEffectiveCombatTypeForPiece(darkPiece);
+            if (darkEffectiveType === 'Phoenix') updatePhoenixExplosion(darkActor);
             else updateAuraAttack(darkActor);
         }
 
@@ -1266,7 +1498,7 @@ class ArchonGame {
             const len = Math.hypot(dx, dy);
             const ndx = dx / len;
             const ndy = dy / len;
-            const stats = UNIT_STATS[piece?.type];
+            const stats = this.getUnitStats(piece?.type, piece?.id);
             const speed = stats?.speed ?? 200;
             actor.x += ndx * speed * deltaTime;
             actor.y += ndy * speed * deltaTime;
@@ -1343,7 +1575,7 @@ class ArchonGame {
             const defHB = actorHitbox(defenderActor);
             if (!rectsOverlap(zone, defHB)) return false;
 
-            const stats = UNIT_STATS[attackerPiece?.type];
+            const stats = this.getUnitStats(attackerPiece?.type, attackerPiece?.id);
             if (!stats) return false;
             const damage = stats.attackDamage;
 
@@ -1380,7 +1612,8 @@ class ArchonGame {
         {
             const applyAuraDps = (actor, actorPiece, opponentActor) => {
                 if (!actor?.isAttacking) return;
-                if (actorPiece?.type === 'Phoenix') return;
+                const effectiveType = this.getEffectiveCombatTypeForPiece(actorPiece);
+                if (effectiveType === 'Phoenix') return;
                 const prog = actor.auraProgress ?? 0;
                 if (prog <= 0.25) return;
                 if (!opponentActor) return;
@@ -1394,7 +1627,7 @@ class ArchonGame {
                 const inside = ((dx * dx) / (rx * rx)) + ((dy * dy) / (ry * ry)) <= 1;
                 if (!inside) return;
 
-                const stats = UNIT_STATS[actorPiece?.type];
+                const stats = this.getUnitStats(actorPiece?.type, actorPiece?.id);
                 const DPS = stats?.auraDamagePerSecond ?? 12;
                 opponentActor.currentHP = (opponentActor.currentHP ?? 0) - (DPS * deltaTime);
             };
@@ -1405,7 +1638,8 @@ class ArchonGame {
 
         {
             const applyPhoenixExplosionDps = (actor, actorPiece, opponentActor) => {
-                if (actorPiece?.type !== 'Phoenix') return;
+                const effectiveType = this.getEffectiveCombatTypeForPiece(actorPiece);
+                if (effectiveType !== 'Phoenix') return;
                 if (!actor) return;
                 if ((actor.auraState ?? 'idle') === 'idle') return;
                 if (!opponentActor) return;
@@ -1417,7 +1651,7 @@ class ArchonGame {
                 const dist = Math.hypot(dx, dy);
                 if (dist >= radius) return;
 
-                const stats = UNIT_STATS[actorPiece?.type];
+                const stats = this.getUnitStats(actorPiece?.type, actorPiece?.id);
                 const DPS = stats?.auraDamagePerSecond ?? 12;
                 opponentActor.currentHP = (opponentActor.currentHP ?? 0) - (DPS * deltaTime);
             };
@@ -1529,15 +1763,18 @@ class ArchonGame {
         const combatLight = this.combat.lightActor ?? { x: leftX, y: midY, facing: lightPiece?.facing ?? 'E' };
         const combatDark = this.combat.darkActor ?? { x: rightX, y: midY, facing: darkPiece?.facing ?? 'W' };
 
-        if (lightPiece && lightPiece.type === 'Phoenix' && (combatLight?.auraState ?? 'idle') !== 'idle') {
+        const lightEffectiveType = this.getEffectiveCombatTypeForPiece(lightPiece);
+        const darkEffectiveType = this.getEffectiveCombatTypeForPiece(darkPiece);
+
+        if (lightPiece && lightEffectiveType === 'Phoenix' && (combatLight?.auraState ?? 'idle') !== 'idle') {
             this.drawPhoenixExplosion(combatLight, spriteSize);
-        } else if (lightPiece && this.getCombatType(lightPiece.type) === 'AURA' && combatLight?.isAttacking) {
+        } else if (lightPiece && this.getCombatType(lightPiece.type, lightPiece.id) === 'AURA' && combatLight?.isAttacking) {
             this.drawAuraShimmer(combatLight, lightPiece, spriteSize);
         }
 
-        if (darkPiece && darkPiece.type === 'Phoenix' && (combatDark?.auraState ?? 'idle') !== 'idle') {
+        if (darkPiece && darkEffectiveType === 'Phoenix' && (combatDark?.auraState ?? 'idle') !== 'idle') {
             this.drawPhoenixExplosion(combatDark, spriteSize);
-        } else if (darkPiece && this.getCombatType(darkPiece.type) === 'AURA' && combatDark?.isAttacking) {
+        } else if (darkPiece && this.getCombatType(darkPiece.type, darkPiece.id) === 'AURA' && combatDark?.isAttacking) {
             this.drawAuraShimmer(combatDark, darkPiece, spriteSize);
         }
 
@@ -1610,7 +1847,9 @@ class ArchonGame {
                             : null;
 
                 if (sprite?.loaded) {
-                    this.drawWalkCycleSprite(sprite, p.x, p.y, projDrawSize, p.direction ?? 'E', 0);
+                    const preferBlue = (p.fromShapeshifter && p.ownerSide === 'dark');
+                    const imageOverride = preferBlue ? this.getSpriteImageForPiece(sprite, null, true) : null;
+                    this.drawWalkCycleSprite(sprite, p.x, p.y, projDrawSize, p.direction ?? 'E', 0, imageOverride);
                 } else {
                     const r = Math.max(3, Math.floor(projDrawSize * 0.18));
                     this.ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
@@ -1685,72 +1924,99 @@ class ArchonGame {
     }
 
     drawCombatPiece(piece, cx, cy, spriteSize, facing, frameIndex) {
-        if (piece.type === 'Knight' && this.knightSprite.loaded) {
-            this.drawKnightSprite(cx, cy, spriteSize, facing ?? 'E', frameIndex ?? 0);
+        let renderType = piece.type;
+        if (piece.type === 'Shape Shifter' && this.gameState === 'COMBAT') {
+            if (piece.side === 'light' && this.combat?.lightCopiedType) {
+                renderType = this.combat.lightCopiedType;
+            }
+            if (piece.side === 'dark' && this.combat?.darkCopiedType) {
+                renderType = this.combat.darkCopiedType;
+            }
+        }
+
+        const preferBlue = (this.gameState === 'COMBAT' && piece?.type === 'Shape Shifter' && piece?.side === 'dark');
+
+        if (renderType === 'Knight' && this.knightSprite.loaded) {
+            const imageOverride = preferBlue ? this.getSpriteImageForPiece(this.knightSprite, piece, true) : null;
+            this.drawKnightSprite(cx, cy, spriteSize, facing ?? 'E', frameIndex ?? 0, imageOverride);
             return;
         }
-        if (piece.type === 'Goblin' && this.goblinSprite.loaded) {
-            this.drawGoblinSprite(cx, cy, spriteSize, facing ?? 'W', frameIndex ?? 0);
+        if (renderType === 'Goblin' && this.goblinSprite.loaded) {
+            const imageOverride = preferBlue ? this.getSpriteImageForPiece(this.goblinSprite, piece, true) : null;
+            this.drawGoblinSprite(cx, cy, spriteSize, facing ?? 'W', frameIndex ?? 0, imageOverride);
             return;
         }
-        if (piece.type === 'Unicorn' && this.unicornSprite.loaded) {
+        if (renderType === 'Unicorn' && this.unicornSprite.loaded) {
             const defaultFacing = piece.side === 'dark' ? 'W' : 'E';
-            this.drawWalkCycleSprite(this.unicornSprite, cx, cy, spriteSize, facing ?? defaultFacing, frameIndex ?? 0);
+            const imageOverride = preferBlue ? this.getSpriteImageForPiece(this.unicornSprite, piece, true) : null;
+            this.drawWalkCycleSprite(this.unicornSprite, cx, cy, spriteSize, facing ?? defaultFacing, frameIndex ?? 0, imageOverride);
             return;
         }
-        if (piece.type === 'Basilisk' && this.basiliskSprite.loaded) {
+        if (renderType === 'Basilisk' && this.basiliskSprite.loaded) {
             const defaultFacing = piece.side === 'dark' ? 'W' : 'E';
-            this.drawWalkCycleSprite(this.basiliskSprite, cx, cy, spriteSize, facing ?? defaultFacing, frameIndex ?? 0);
+            const imageOverride = preferBlue ? this.getSpriteImageForPiece(this.basiliskSprite, piece, true) : null;
+            this.drawWalkCycleSprite(this.basiliskSprite, cx, cy, spriteSize, facing ?? defaultFacing, frameIndex ?? 0, imageOverride);
             return;
         }
-        if (piece.type === 'Sorceress' && this.sorceressSprite.loaded) {
+        if (renderType === 'Sorceress' && this.sorceressSprite.loaded) {
             const defaultFacing = piece.side === 'dark' ? 'W' : 'E';
-            this.drawWalkCycleSprite(this.sorceressSprite, cx, cy, spriteSize, facing ?? defaultFacing, frameIndex ?? 0);
+            const imageOverride = preferBlue ? this.getSpriteImageForPiece(this.sorceressSprite, piece, true) : null;
+            this.drawWalkCycleSprite(this.sorceressSprite, cx, cy, spriteSize, facing ?? defaultFacing, frameIndex ?? 0, imageOverride);
             return;
         }
-        if (piece.type === 'Wizard' && this.wizardSprite.loaded) {
-            this.drawWizardSprite(cx, cy, spriteSize, facing ?? 'E', frameIndex ?? 0);
+        if (renderType === 'Wizard' && this.wizardSprite.loaded) {
+            const imageOverride = preferBlue ? this.getSpriteImageForPiece(this.wizardSprite, piece, true) : null;
+            this.drawWizardSprite(cx, cy, spriteSize, facing ?? 'E', frameIndex ?? 0, imageOverride);
             return;
         }
-        if (piece.type === 'Phoenix' && this.phoenixSprite.loaded) {
-            this.drawWalkCycleSprite(this.phoenixSprite, cx, cy, spriteSize, facing ?? 'E', frameIndex ?? 0);
+        if (renderType === 'Phoenix' && this.phoenixSprite.loaded) {
+            const imageOverride = preferBlue ? this.getSpriteImageForPiece(this.phoenixSprite, piece, true) : null;
+            this.drawWalkCycleSprite(this.phoenixSprite, cx, cy, spriteSize, facing ?? 'E', frameIndex ?? 0, imageOverride);
             return;
         }
-        if (piece.type === 'Archer' && this.archerSprite.loaded) {
-            this.drawArcherSprite(cx, cy, spriteSize, facing ?? 'E', frameIndex ?? 0);
+        if (renderType === 'Archer' && this.archerSprite.loaded) {
+            const imageOverride = preferBlue ? this.getSpriteImageForPiece(this.archerSprite, piece, true) : null;
+            this.drawArcherSprite(cx, cy, spriteSize, facing ?? 'E', frameIndex ?? 0, imageOverride);
             return;
         }
-        if (piece.type === 'Golem' && this.golemSprite.loaded) {
+        if (renderType === 'Golem' && this.golemSprite.loaded) {
             const defaultFacing = piece.side === 'dark' ? 'W' : 'E';
-            this.drawWalkCycleSprite(this.golemSprite, cx, cy, spriteSize, facing ?? defaultFacing, frameIndex ?? 0);
+            const imageOverride = preferBlue ? this.getSpriteImageForPiece(this.golemSprite, piece, true) : null;
+            this.drawWalkCycleSprite(this.golemSprite, cx, cy, spriteSize, facing ?? defaultFacing, frameIndex ?? 0, imageOverride);
             return;
         }
-        if (piece.type === 'Troll' && this.trollSprite.loaded) {
+        if (renderType === 'Troll' && this.trollSprite.loaded) {
             const defaultFacing = piece.side === 'dark' ? 'W' : 'E';
-            this.drawWalkCycleSprite(this.trollSprite, cx, cy, spriteSize, facing ?? defaultFacing, frameIndex ?? 0);
+            const imageOverride = preferBlue ? this.getSpriteImageForPiece(this.trollSprite, piece, true) : null;
+            this.drawWalkCycleSprite(this.trollSprite, cx, cy, spriteSize, facing ?? defaultFacing, frameIndex ?? 0, imageOverride);
             return;
         }
-        if (piece.type === 'Banshee' && this.bansheeSprite.loaded) {
-            this.drawWalkCycleSprite(this.bansheeSprite, cx, cy, spriteSize, facing ?? 'W', frameIndex ?? 0);
+        if (renderType === 'Banshee' && this.bansheeSprite.loaded) {
+            const imageOverride = preferBlue ? this.getSpriteImageForPiece(this.bansheeSprite, piece, true) : null;
+            this.drawWalkCycleSprite(this.bansheeSprite, cx, cy, spriteSize, facing ?? 'W', frameIndex ?? 0, imageOverride);
             return;
         }
-        if (piece.type === 'Dragon' && this.dragonSprite.loaded) {
-            this.drawWalkCycleSprite(this.dragonSprite, cx, cy, spriteSize, facing ?? 'E', frameIndex ?? 0);
+        if (renderType === 'Dragon' && this.dragonSprite.loaded) {
+            const imageOverride = preferBlue ? this.getSpriteImageForPiece(this.dragonSprite, piece, true) : null;
+            this.drawWalkCycleSprite(this.dragonSprite, cx, cy, spriteSize, facing ?? 'E', frameIndex ?? 0, imageOverride);
             return;
         }
-        if (piece.type === 'Valkyrie' && this.valkyrieSprite.loaded) {
+        if (renderType === 'Valkyrie' && this.valkyrieSprite.loaded) {
             const defaultFacing = piece.side === 'dark' ? 'W' : 'E';
-            this.drawWalkCycleSprite(this.valkyrieSprite, cx, cy, spriteSize, facing ?? defaultFacing, frameIndex ?? 0);
+            const imageOverride = preferBlue ? this.getSpriteImageForPiece(this.valkyrieSprite, piece, true) : null;
+            this.drawWalkCycleSprite(this.valkyrieSprite, cx, cy, spriteSize, facing ?? defaultFacing, frameIndex ?? 0, imageOverride);
             return;
         }
-        if (piece.type === 'Djinn' && this.djinnSprite.loaded) {
+        if (renderType === 'Djinn' && this.djinnSprite.loaded) {
             const defaultFacing = piece.side === 'dark' ? 'W' : 'E';
-            this.drawWalkCycleSprite(this.djinnSprite, cx, cy, spriteSize, facing ?? defaultFacing, frameIndex ?? 0);
+            const imageOverride = preferBlue ? this.getSpriteImageForPiece(this.djinnSprite, piece, true) : null;
+            this.drawWalkCycleSprite(this.djinnSprite, cx, cy, spriteSize, facing ?? defaultFacing, frameIndex ?? 0, imageOverride);
             return;
         }
-        if (piece.type === 'Manticore' && this.manticoreSprite.loaded) {
+        if (renderType === 'Manticore' && this.manticoreSprite.loaded) {
             const defaultFacing = piece.side === 'dark' ? 'W' : 'E';
-            this.drawWalkCycleSprite(this.manticoreSprite, cx, cy, spriteSize, facing ?? defaultFacing, frameIndex ?? 0);
+            const imageOverride = preferBlue ? this.getSpriteImageForPiece(this.manticoreSprite, piece, true) : null;
+            this.drawWalkCycleSprite(this.manticoreSprite, cx, cy, spriteSize, facing ?? defaultFacing, frameIndex ?? 0, imageOverride);
             return;
         }
 
@@ -1891,7 +2157,10 @@ class ArchonGame {
         if (!piece || !actor) return;
         if (!actor.isAttacking) return;
 
-        if (piece.type === 'Knight') {
+        const effectiveType = this.getEffectiveCombatTypeForPiece(piece);
+        const preferBlue = (piece.type === 'Shape Shifter' && piece.side === 'dark' && this.gameState === 'COMBAT');
+
+        if (effectiveType === 'Knight') {
             if (!this.knightSprite.loaded) return;
             if (!this.knightSwordSprite.loaded) return;
             this.drawAnchoredOverlay(
@@ -1901,11 +2170,13 @@ class ArchonGame {
                 actor.x,
                 actor.y,
                 spriteSize,
-                actor.facing ?? 'E'
+                actor.facing ?? 'E',
+                preferBlue ? this.getSpriteImageForPiece(this.knightSprite, piece, true) : null,
+                preferBlue ? this.getSpriteImageForPiece(this.knightSwordSprite, piece, true) : null
             );
         }
 
-        if (piece.type === 'Goblin') {
+        if (effectiveType === 'Goblin') {
             if (!this.goblinSprite.loaded) return;
             if (!this.goblinClubSprite.loaded) return;
             this.drawAnchoredOverlay(
@@ -1915,12 +2186,14 @@ class ArchonGame {
                 actor.x,
                 actor.y,
                 spriteSize,
-                actor.facing ?? 'E'
+                actor.facing ?? 'E',
+                preferBlue ? this.getSpriteImageForPiece(this.goblinSprite, piece, true) : null,
+                preferBlue ? this.getSpriteImageForPiece(this.goblinClubSprite, piece, true) : null
             );
         }
     }
 
-    drawAnchoredOverlay(bodySprite, overlaySprite, anchors, cx, cy, tileSize, facing) {
+    drawAnchoredOverlay(bodySprite, overlaySprite, anchors, cx, cy, tileSize, facing, bodyImageOverride = null, overlayImageOverride = null) {
         const bodySw = bodySprite.frameW;
         const bodySh = bodySprite.frameH;
         const overlaySw = overlaySprite.frameW;
@@ -1956,7 +2229,8 @@ class ArchonGame {
 
         const prevSmoothing = this.ctx.imageSmoothingEnabled;
         this.ctx.imageSmoothingEnabled = false;
-        this.ctx.drawImage(overlaySprite.img, sx, sy, overlaySw, overlaySh, dx, dy, overlaySw * intScale, overlaySh * intScale);
+        const overlayImg = overlayImageOverride ?? overlaySprite.img;
+        this.ctx.drawImage(overlayImg, sx, sy, overlaySw, overlaySh, dx, dy, overlaySw * intScale, overlaySh * intScale);
         this.ctx.imageSmoothingEnabled = prevSmoothing;
     }
 
@@ -2011,6 +2285,23 @@ class ArchonGame {
         const lightPieceId = lightPiece?.id;
         const darkPieceId = darkPiece?.id;
 
+        let lightOriginalType = null;
+        let lightCopiedType = null;
+        let darkOriginalType = null;
+        let darkCopiedType = null;
+
+        if (lightPiece?.type === 'Shape Shifter') {
+            const opponentType = darkPiece?.type;
+            lightOriginalType = 'Shape Shifter';
+            lightCopiedType = opponentType;
+        }
+
+        if (darkPiece?.type === 'Shape Shifter') {
+            const opponentType = lightPiece?.type;
+            darkOriginalType = 'Shape Shifter';
+            darkCopiedType = opponentType;
+        }
+
         const lightHP = this.calculateEffectiveMaxHP(lightPiece);
         const darkHP = this.calculateEffectiveMaxHP(darkPiece);
 
@@ -2019,6 +2310,10 @@ class ArchonGame {
             defenderId: capture.defenderId,
             lightPieceId,
             darkPieceId,
+            lightOriginalType,
+            lightCopiedType,
+            darkOriginalType,
+            darkCopiedType,
             square: capture.square,
             canvasRestore,
             arena,
@@ -2034,6 +2329,14 @@ class ArchonGame {
         if (!this.phoenixExplosionSprite?.loaded) return;
         const frameIndex = Math.max(0, Math.min(2, actor.auraFrameIndex ?? 0));
 
+        let useBlue = false;
+        if (this.gameState === 'COMBAT' && actor.side === 'dark' && this.combat?.darkPieceId != null) {
+            const darkPiece = this.getPieceById(this.combat.darkPieceId);
+            if (darkPiece?.type === 'Shape Shifter' && darkPiece?.side === 'dark') {
+                useBlue = true;
+            }
+        }
+
         const intScale = Math.max(1, Math.floor(spriteSize / 64));
         const drawW = 237 * intScale;
         const drawH = 128 * intScale;
@@ -2046,7 +2349,10 @@ class ArchonGame {
         this.ctx.save();
         const prevSmoothing = this.ctx.imageSmoothingEnabled;
         this.ctx.imageSmoothingEnabled = false;
-        this.ctx.drawImage(this.phoenixExplosionSprite.img, sx, sy, 237, 128, dx, dy, drawW, drawH);
+        const img = (useBlue && this.phoenixExplosionSprite.blueLoaded && this.phoenixExplosionSprite.blueImg)
+            ? this.phoenixExplosionSprite.blueImg
+            : this.phoenixExplosionSprite.img;
+        this.ctx.drawImage(img, sx, sy, 237, 128, dx, dy, drawW, drawH);
         this.ctx.imageSmoothingEnabled = prevSmoothing;
         this.ctx.restore();
     }
@@ -2080,6 +2386,12 @@ class ArchonGame {
             this.phoenixExplosionSprite.frameW = img.width;
             this.phoenixExplosionSprite.frameH = frameH;
             this.phoenixExplosionSprite.loaded = this.phoenixExplosionSprite.frameW > 0 && this.phoenixExplosionSprite.frameH > 0;
+
+            if (this.phoenixExplosionSprite.loaded) {
+                const blueVersion = this.recolorImageToDarkBlue(img);
+                this.phoenixExplosionSprite.blueImg = blueVersion;
+                this.phoenixExplosionSprite.blueLoaded = true;
+            }
         };
 
         img.onerror = () => {
@@ -2128,6 +2440,12 @@ class ArchonGame {
             this.sorceressProjectileSprite.frameW = img.width;
             this.sorceressProjectileSprite.frameH = frameH;
             this.sorceressProjectileSprite.loaded = this.sorceressProjectileSprite.frameW > 0 && this.sorceressProjectileSprite.frameH > 0;
+
+            if (this.sorceressProjectileSprite.loaded) {
+                const blueVersion = this.recolorImageToDarkBlue(img);
+                this.sorceressProjectileSprite.blueImg = blueVersion;
+                this.sorceressProjectileSprite.blueLoaded = true;
+            }
         };
 
         img.onerror = () => {
@@ -2176,6 +2494,12 @@ class ArchonGame {
             this.basiliskProjectileSprite.frameW = img.width;
             this.basiliskProjectileSprite.frameH = frameH;
             this.basiliskProjectileSprite.loaded = this.basiliskProjectileSprite.frameW > 0 && this.basiliskProjectileSprite.frameH > 0;
+
+            if (this.basiliskProjectileSprite.loaded) {
+                const blueVersion = this.recolorImageToDarkBlue(img);
+                this.basiliskProjectileSprite.blueImg = blueVersion;
+                this.basiliskProjectileSprite.blueLoaded = true;
+            }
         };
 
         img.onerror = () => {
@@ -2226,6 +2550,12 @@ class ArchonGame {
             this.unicornProjectileSprite.frameW = img.width;
             this.unicornProjectileSprite.frameH = frameH;
             this.unicornProjectileSprite.loaded = this.unicornProjectileSprite.frameW > 0 && this.unicornProjectileSprite.frameH > 0;
+
+            if (this.unicornProjectileSprite.loaded) {
+                const blueVersion = this.recolorImageToDarkBlue(img);
+                this.unicornProjectileSprite.blueImg = blueVersion;
+                this.unicornProjectileSprite.blueLoaded = true;
+            }
         };
 
         img.onerror = () => {
@@ -2233,6 +2563,18 @@ class ArchonGame {
         };
 
         tryNext();
+    }
+
+    loadShapeshifterSprite() {
+        // Paths pulled from SPRITE_PATHS configuration block
+        const candidates = SPRITE_PATHS['Shape Shifter'].walk;
+
+        this.loadWalkCycleSpriteSheet(
+            this.shapeshifterSprite,
+            candidates,
+            [4, 3],
+            [8]
+        );
     }
 
     loadDjinnSprite() {
@@ -2276,6 +2618,12 @@ class ArchonGame {
             this.djinnProjectileSprite.frameW = img.width;
             this.djinnProjectileSprite.frameH = frameH;
             this.djinnProjectileSprite.loaded = this.djinnProjectileSprite.frameW > 0 && this.djinnProjectileSprite.frameH > 0;
+
+            if (this.djinnProjectileSprite.loaded) {
+                const blueVersion = this.recolorImageToDarkBlue(img);
+                this.djinnProjectileSprite.blueImg = blueVersion;
+                this.djinnProjectileSprite.blueLoaded = true;
+            }
         };
 
         img.onerror = () => {
@@ -2326,6 +2674,12 @@ class ArchonGame {
             this.manticoreProjectileSprite.frameW = img.width;
             this.manticoreProjectileSprite.frameH = frameH;
             this.manticoreProjectileSprite.loaded = this.manticoreProjectileSprite.frameW > 0 && this.manticoreProjectileSprite.frameH > 0;
+
+            if (this.manticoreProjectileSprite.loaded) {
+                const blueVersion = this.recolorImageToDarkBlue(img);
+                this.manticoreProjectileSprite.blueImg = blueVersion;
+                this.manticoreProjectileSprite.blueLoaded = true;
+            }
         };
 
         img.onerror = () => {
@@ -2376,6 +2730,12 @@ class ArchonGame {
             this.valkyrieProjectileSprite.frameW = img.width;
             this.valkyrieProjectileSprite.frameH = frameH;
             this.valkyrieProjectileSprite.loaded = this.valkyrieProjectileSprite.frameW > 0 && this.valkyrieProjectileSprite.frameH > 0;
+
+            if (this.valkyrieProjectileSprite.loaded) {
+                const blueVersion = this.recolorImageToDarkBlue(img);
+                this.valkyrieProjectileSprite.blueImg = blueVersion;
+                this.valkyrieProjectileSprite.blueLoaded = true;
+            }
         };
 
         img.onerror = () => {
@@ -2426,6 +2786,12 @@ class ArchonGame {
             this.dragonProjectileSprite.frameW = img.width;
             this.dragonProjectileSprite.frameH = frameH;
             this.dragonProjectileSprite.loaded = this.dragonProjectileSprite.frameW > 0 && this.dragonProjectileSprite.frameH > 0;
+
+            if (this.dragonProjectileSprite.loaded) {
+                const blueVersion = this.recolorImageToDarkBlue(img);
+                this.dragonProjectileSprite.blueImg = blueVersion;
+                this.dragonProjectileSprite.blueLoaded = true;
+            }
         };
 
         img.onerror = () => {
@@ -2450,6 +2816,10 @@ class ArchonGame {
 
             const winner = this.getPieceById(result.winnerId);
             if (winner) {
+                if (winner.type === 'Shape Shifter') {
+                    winner.currentHP = UNIT_STATS['Shape Shifter'].maxHP;
+                }
+
                 winner.col = x;
                 winner.row = y;
 
@@ -2775,6 +3145,21 @@ class ArchonGame {
                 continue;
             }
 
+            if (piece.type === 'Shape Shifter' && this.shapeshifterSprite.loaded) {
+                let walkFrame = 0;
+                if (piece.state === 'MOVING') {
+                    const stats = this.getUnitStats(piece?.type);
+                    if (stats?.moveType === 'FLY' && piece.move) {
+                        walkFrame = Math.floor(((piece.move.stepT ?? 0) * 6)) % 3;
+                    } else {
+                        walkFrame = Math.min(2, Math.floor((piece.walkAnimTime * 10) % 3));
+                    }
+                }
+                const facing = piece.facing ?? 'W';
+                this.drawWalkCycleSprite(this.shapeshifterSprite, cx, cy, tileSize, facing, walkFrame);
+                continue;
+            }
+
             const radius = Math.max(10, Math.floor(tileSize * 0.32));
 
             this.ctx.fillStyle = piece.side === 'dark'
@@ -2828,6 +3213,10 @@ class ArchonGame {
         img.onload = () => {
             this.knightSwordSprite.img = img;
             this.knightSwordSprite.loaded = true;
+
+            const blueVersion = this.recolorImageToDarkBlue(img);
+            this.knightSwordSprite.blueImg = blueVersion;
+            this.knightSwordSprite.blueLoaded = true;
         };
 
         img.onerror = () => {
@@ -2878,6 +3267,12 @@ class ArchonGame {
             this.trollProjectileSprite.frameW = img.width;
             this.trollProjectileSprite.frameH = frameH;
             this.trollProjectileSprite.loaded = this.trollProjectileSprite.frameW > 0 && this.trollProjectileSprite.frameH > 0;
+
+            if (this.trollProjectileSprite.loaded) {
+                const blueVersion = this.recolorImageToDarkBlue(img);
+                this.trollProjectileSprite.blueImg = blueVersion;
+                this.trollProjectileSprite.blueLoaded = true;
+            }
         };
 
         img.onerror = () => {
@@ -2928,6 +3323,12 @@ class ArchonGame {
             this.golemProjectileSprite.frameW = img.width;
             this.golemProjectileSprite.frameH = frameH;
             this.golemProjectileSprite.loaded = this.golemProjectileSprite.frameW > 0 && this.golemProjectileSprite.frameH > 0;
+
+            if (this.golemProjectileSprite.loaded) {
+                const blueVersion = this.recolorImageToDarkBlue(img);
+                this.golemProjectileSprite.blueImg = blueVersion;
+                this.golemProjectileSprite.blueLoaded = true;
+            }
         };
 
         img.onerror = () => {
@@ -2966,6 +3367,12 @@ class ArchonGame {
             this.goblinClubSprite.frameW = img.width;
             this.goblinClubSprite.frameH = frameH;
             this.goblinClubSprite.loaded = this.goblinClubSprite.frameW > 0 && this.goblinClubSprite.frameH > 0;
+
+            if (this.goblinClubSprite.loaded) {
+                const blueVersion = this.recolorImageToDarkBlue(img);
+                this.goblinClubSprite.blueImg = blueVersion;
+                this.goblinClubSprite.blueLoaded = true;
+            }
         };
 
         img.onerror = () => {
@@ -3040,6 +3447,12 @@ class ArchonGame {
             this.archerProjectileSprite.frameW = img.width;
             this.archerProjectileSprite.frameH = frameH;
             this.archerProjectileSprite.loaded = this.archerProjectileSprite.frameW > 0 && this.archerProjectileSprite.frameH > 0;
+
+            if (this.archerProjectileSprite.loaded) {
+                const blueVersion = this.recolorImageToDarkBlue(img);
+                this.archerProjectileSprite.blueImg = blueVersion;
+                this.archerProjectileSprite.blueLoaded = true;
+            }
         };
 
         img.onerror = () => {
@@ -3102,6 +3515,12 @@ class ArchonGame {
             this.wizardProjectileSprite.frameW = img.width;
             this.wizardProjectileSprite.frameH = frameH;
             this.wizardProjectileSprite.loaded = this.wizardProjectileSprite.frameW > 0 && this.wizardProjectileSprite.frameH > 0;
+
+            if (this.wizardProjectileSprite.loaded) {
+                const blueVersion = this.recolorImageToDarkBlue(img);
+                this.wizardProjectileSprite.blueImg = blueVersion;
+                this.wizardProjectileSprite.blueLoaded = true;
+            }
         };
 
         img.onerror = () => {
@@ -3152,6 +3571,12 @@ class ArchonGame {
             sprite.frameW = best.frameW;
             sprite.frameH = best.frameH;
             sprite.loaded = sprite.frameW > 0 && sprite.frameH > 0;
+
+            if (sprite.loaded && 'blueImg' in sprite && 'blueLoaded' in sprite) {
+                const blueVersion = this.recolorImageToDarkBlue(img);
+                sprite.blueImg = blueVersion;
+                sprite.blueLoaded = true;
+            }
         };
 
         img.onerror = () => {
@@ -3794,23 +4219,23 @@ class ArchonGame {
         return x >= 0 && x < this.boardSize && y >= 0 && y < this.boardSize;
     }
 
-    drawKnightSprite(cx, cy, tileSize, facing, frameIndex) {
-        this.drawWalkCycleSprite(this.knightSprite, cx, cy, tileSize, facing, frameIndex);
+    drawKnightSprite(cx, cy, tileSize, facing, frameIndex, imageOverride = null) {
+        this.drawWalkCycleSprite(this.knightSprite, cx, cy, tileSize, facing, frameIndex, imageOverride);
     }
 
-    drawGoblinSprite(cx, cy, tileSize, facing, frameIndex) {
-        this.drawWalkCycleSprite(this.goblinSprite, cx, cy, tileSize, facing, frameIndex);
+    drawGoblinSprite(cx, cy, tileSize, facing, frameIndex, imageOverride = null) {
+        this.drawWalkCycleSprite(this.goblinSprite, cx, cy, tileSize, facing, frameIndex, imageOverride);
     }
 
-    drawWizardSprite(cx, cy, tileSize, facing, frameIndex) {
-        this.drawWalkCycleSprite(this.wizardSprite, cx, cy, tileSize, facing, frameIndex);
+    drawWizardSprite(cx, cy, tileSize, facing, frameIndex, imageOverride = null) {
+        this.drawWalkCycleSprite(this.wizardSprite, cx, cy, tileSize, facing, frameIndex, imageOverride);
     }
 
-    drawArcherSprite(cx, cy, tileSize, facing, frameIndex) {
-        this.drawWalkCycleSprite(this.archerSprite, cx, cy, tileSize, facing, frameIndex);
+    drawArcherSprite(cx, cy, tileSize, facing, frameIndex, imageOverride = null) {
+        this.drawWalkCycleSprite(this.archerSprite, cx, cy, tileSize, facing, frameIndex, imageOverride);
     }
 
-    drawWalkCycleSprite(sprite, cx, cy, tileSize, facing, frameIndex) {
+    drawWalkCycleSprite(sprite, cx, cy, tileSize, facing, frameIndex, imageOverride = null) {
         const dirIndex = sprite.directionOrder.indexOf(facing);
         const row = dirIndex >= 0 ? dirIndex : 0;
         const col = Math.max(0, Math.min(sprite.cols - 1, frameIndex));
@@ -3828,7 +4253,8 @@ class ArchonGame {
 
         const prevSmoothing = this.ctx.imageSmoothingEnabled;
         this.ctx.imageSmoothingEnabled = false;
-        this.ctx.drawImage(sprite.img, sx, sy, sw, sh, dx, dy, dw, dh);
+        const img = imageOverride ?? sprite.img;
+        this.ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
         this.ctx.imageSmoothingEnabled = prevSmoothing;
     }
     
