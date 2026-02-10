@@ -7,11 +7,12 @@
 // These values are safe to modify without changing engine logic.
 //
 // Sections:
-// 1.Global Combat Scaling
-// 2. Combat Timing Constants
-// 3. Strategy Movement Tuning
-// 4. Initial Board Setup
-// 5. Melee Weapon and Icon attachment data
+// Sprite Asset Configuration
+// Global Combat Scaling
+// Combat Timing Constants
+// Strategy Movement Tuning
+// Initial Board Setup
+// Melee Weapon and Icon attachment data
 //
 // Engine logic begins below in the ArchonGame class.
 // ======================================================
@@ -55,6 +56,54 @@ const SPRITE_PATHS = {
         ],
         projectile: [
             'assets/Archer Projectile.png'
+        ]
+    },
+    Troll: {
+        walk: [
+            'assets/Troll Walk Cycle.png'
+        ],
+        projectile: [
+            'assets/Troll Projectile.png'
+        ]
+    },
+    Golem: {
+        walk: [
+            'assets/Golem Walk Cycle.png'
+        ],
+        projectile: [
+            'assets/Golem Projectile.png'
+        ]
+    },
+    Valkyrie: {
+        walk: [
+            'assets/Valkyrie Walk Cycle.png'
+        ],
+        projectile: [
+            'assets/Valkyrie Projectile.png'
+        ]
+    },
+    Manticore: {
+        walk: [
+            'assets/Manticore Walk Cycle.png'
+        ],
+        projectile: [
+            'assets/Manticore Projectile.png'
+        ]
+    },
+    Dragon: {
+        walk: [
+            'assets/Dragon Walk Cycle.png'
+        ],
+        projectile: [
+            'assets/Dragon Projectile.png'
+        ]
+    },
+    Djinn: {
+        walk: [
+            'assets/Djinn Walk Cycle.png'
+        ],
+        projectile: [
+            'assets/Djinn Projectile.png'
         ]
     },
     Phoenix: {
@@ -267,45 +316,41 @@ const UNIT_STATS = {
         auraRadiusMultiplier: 0.85,
         auraDamagePerSecond: 5
     },
-    Valkyrie: {
-        combatType: 'MELEE',
-        maxHP: 10,
-        moveType: 'FLY',
-        moveRange: 3,
-        speed: 200,
-        attackDamage: 1,
-        attackDuration: 0.35,
-        attacksPerSecond: 1
-    },
     Manticore: {
-        combatType: 'MELEE',
-        maxHP: 10,
+        combatType: 'PROJECTILE',
+        maxHP: 14,
         moveType: 'WALK',
         moveRange: 3,
-        speed: 200,
-        attackDamage: 1,
+        speed: 220,
+        attackDamage: 6,
         attackDuration: 0.35,
-        attacksPerSecond: 1
+        attacksPerSecond: 1.0,
+        shotSpeedMultiplier: 0.9,
+        projectileWidthH: 8,
+        projectileWidthV: 10
     },
     Golem: {
-        combatType: 'MELEE',
+        combatType: 'PROJECTILE',
         maxHP: 10,
         moveType: 'WALK',
         moveRange: 3,
         speed: 200,
-        attackDamage: 1,
+        attackDamage: 10,
         attackDuration: 0.35,
         attacksPerSecond: 1
     },
     Troll: {
-        combatType: 'MELEE',
-        maxHP: 10,
+        combatType: 'PROJECTILE',
+        maxHP: 18.5,
         moveType: 'WALK',
         moveRange: 3,
-        speed: 200,
-        attackDamage: 1,
-        attackDuration: 0.35,
-        attacksPerSecond: 1
+        speed: 170,
+        attackDamage: 8,
+        attackDuration: 0.45,
+        attacksPerSecond: 0.8,
+        shotSpeedMultiplier: 0.7,
+        projectileWidthH: 8,
+        projectileWidthV: 10
     },
     Unicorn: {
         combatType: 'MELEE',
@@ -327,6 +372,19 @@ const UNIT_STATS = {
         attackDuration: 0.35,
         attacksPerSecond: 1
     },
+    Valkyrie: {
+        combatType: 'PROJECTILE',
+        maxHP: 10,
+        moveType: 'FLY',
+        moveRange: 3,
+        speed: 220,
+        attackDamage: 6,
+        attackDuration: 0.35,
+        attacksPerSecond: 1.0,
+        shotSpeedMultiplier: 1.0,
+        projectileWidthH: 6,
+        projectileWidthV: 8
+    },
     'Shape Shifter': {
         combatType: 'MELEE',
         maxHP: 10,
@@ -338,24 +396,30 @@ const UNIT_STATS = {
         attacksPerSecond: 1
     },
     Djinn: {
-        combatType: 'MELEE',
-        maxHP: 10,
+        combatType: 'PROJECTILE',
+        maxHP: 12,
         moveType: 'FLY',
         moveRange: 3,
-        speed: 200,
-        attackDamage: 1,
+        speed: 230,
+        attackDamage: 7,
         attackDuration: 0.35,
-        attacksPerSecond: 1
+        attacksPerSecond: 1.0,
+        shotSpeedMultiplier: 1.1,
+        projectileWidthH: 6,
+        projectileWidthV: 8
     },
     Dragon: {
-        combatType: 'MELEE',
+        combatType: 'PROJECTILE',
         maxHP: 23.5,
         moveType: 'FLY',
-        moveRange: 3,
+        moveRange: 4,
         speed: 200,
-        attackDamage: 1,
+        attackDamage: 8,
         attackDuration: 0.35,
-        attacksPerSecond: 1
+        attacksPerSecond: 0.75,
+        shotSpeedMultiplier: 1.0,
+        projectileWidthH: 10,
+        projectileWidthV: 14
     },
     Sorceress: {
         combatType: 'MELEE',
@@ -515,6 +579,46 @@ class ArchonGame {
             directionOrder: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
         };
 
+        this.trollSprite = {
+            img: null,
+            loaded: false,
+            cols: 4,
+            rows: 8,
+            frameW: 0,
+            frameH: 0,
+            directionOrder: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+        };
+
+        this.trollProjectileSprite = {
+            img: null,
+            loaded: false,
+            cols: 1,
+            rows: 8,
+            frameW: 0,
+            frameH: 0,
+            directionOrder: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+        };
+
+        this.golemSprite = {
+            img: null,
+            loaded: false,
+            cols: 4,
+            rows: 8,
+            frameW: 0,
+            frameH: 0,
+            directionOrder: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+        };
+
+        this.golemProjectileSprite = {
+            img: null,
+            loaded: false,
+            cols: 1,
+            rows: 8,
+            frameW: 0,
+            frameH: 0,
+            directionOrder: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+        };
+
         this.phoenixExplosionSprite = {
             img: null,
             loaded: false,
@@ -535,6 +639,86 @@ class ArchonGame {
             directionOrder: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
         };
 
+        this.dragonSprite = {
+            img: null,
+            loaded: false,
+            cols: 4,
+            rows: 8,
+            frameW: 0,
+            frameH: 0,
+            directionOrder: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+        };
+
+        this.dragonProjectileSprite = {
+            img: null,
+            loaded: false,
+            cols: 1,
+            rows: 8,
+            frameW: 0,
+            frameH: 0,
+            directionOrder: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+        };
+
+        this.valkyrieSprite = {
+            img: null,
+            loaded: false,
+            cols: 4,
+            rows: 8,
+            frameW: 0,
+            frameH: 0,
+            directionOrder: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+        };
+
+        this.valkyrieProjectileSprite = {
+            img: null,
+            loaded: false,
+            cols: 1,
+            rows: 8,
+            frameW: 0,
+            frameH: 0,
+            directionOrder: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+        };
+
+        this.djinnSprite = {
+            img: null,
+            loaded: false,
+            cols: 4,
+            rows: 8,
+            frameW: 0,
+            frameH: 0,
+            directionOrder: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+        };
+
+        this.djinnProjectileSprite = {
+            img: null,
+            loaded: false,
+            cols: 1,
+            rows: 8,
+            frameW: 0,
+            frameH: 0,
+            directionOrder: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+        };
+
+        this.manticoreSprite = {
+            img: null,
+            loaded: false,
+            cols: 4,
+            rows: 8,
+            frameW: 0,
+            frameH: 0,
+            directionOrder: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+        };
+
+        this.manticoreProjectileSprite = {
+            img: null,
+            loaded: false,
+            cols: 1,
+            rows: 8,
+            frameW: 0,
+            frameH: 0,
+            directionOrder: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+        };
+
         this.loadKnightSprite();
         this.loadKnightSwordSprite();
         this.loadGoblinSprite();
@@ -544,8 +728,20 @@ class ArchonGame {
         this.loadPhoenixSprite();
         this.loadArcherSprite();
         this.loadArcherProjectileSprite();
+        this.loadTrollSprite();
+        this.loadTrollProjectileSprite();
+        this.loadGolemSprite();
+        this.loadGolemProjectileSprite();
         this.loadPhoenixExplosionSprite();
         this.loadBansheeSprite();
+        this.loadDragonSprite();
+        this.loadDragonProjectileSprite();
+        this.loadValkyrieSprite();
+        this.loadValkyrieProjectileSprite();
+        this.loadDjinnSprite();
+        this.loadDjinnProjectileSprite();
+        this.loadManticoreSprite();
+        this.loadManticoreProjectileSprite();
         
         // Initialize
         this.init();
@@ -1280,7 +1476,21 @@ class ArchonGame {
                 const shooterType = p.shooterType;
                 const sprite = shooterType === 'Archer'
                     ? this.archerProjectileSprite
-                    : this.wizardProjectileSprite;
+                    : shooterType === 'Wizard'
+                        ? this.wizardProjectileSprite
+                        : shooterType === 'Troll'
+                            ? this.trollProjectileSprite
+                        : shooterType === 'Golem'
+                            ? this.golemProjectileSprite
+                        : shooterType === 'Manticore'
+                            ? this.manticoreProjectileSprite
+                        : shooterType === 'Dragon'
+                            ? this.dragonProjectileSprite
+                            : shooterType === 'Valkyrie'
+                                ? this.valkyrieProjectileSprite
+                                : shooterType === 'Djinn'
+                                    ? this.djinnProjectileSprite
+                            : null;
 
                 if (sprite?.loaded) {
                     this.drawWalkCycleSprite(sprite, p.x, p.y, projDrawSize, p.direction ?? 'E', 0);
@@ -1378,8 +1588,37 @@ class ArchonGame {
             this.drawArcherSprite(cx, cy, spriteSize, facing ?? 'E', frameIndex ?? 0);
             return;
         }
+        if (piece.type === 'Golem' && this.golemSprite.loaded) {
+            const defaultFacing = piece.side === 'dark' ? 'W' : 'E';
+            this.drawWalkCycleSprite(this.golemSprite, cx, cy, spriteSize, facing ?? defaultFacing, frameIndex ?? 0);
+            return;
+        }
+        if (piece.type === 'Troll' && this.trollSprite.loaded) {
+            const defaultFacing = piece.side === 'dark' ? 'W' : 'E';
+            this.drawWalkCycleSprite(this.trollSprite, cx, cy, spriteSize, facing ?? defaultFacing, frameIndex ?? 0);
+            return;
+        }
         if (piece.type === 'Banshee' && this.bansheeSprite.loaded) {
             this.drawWalkCycleSprite(this.bansheeSprite, cx, cy, spriteSize, facing ?? 'W', frameIndex ?? 0);
+            return;
+        }
+        if (piece.type === 'Dragon' && this.dragonSprite.loaded) {
+            this.drawWalkCycleSprite(this.dragonSprite, cx, cy, spriteSize, facing ?? 'E', frameIndex ?? 0);
+            return;
+        }
+        if (piece.type === 'Valkyrie' && this.valkyrieSprite.loaded) {
+            const defaultFacing = piece.side === 'dark' ? 'W' : 'E';
+            this.drawWalkCycleSprite(this.valkyrieSprite, cx, cy, spriteSize, facing ?? defaultFacing, frameIndex ?? 0);
+            return;
+        }
+        if (piece.type === 'Djinn' && this.djinnSprite.loaded) {
+            const defaultFacing = piece.side === 'dark' ? 'W' : 'E';
+            this.drawWalkCycleSprite(this.djinnSprite, cx, cy, spriteSize, facing ?? defaultFacing, frameIndex ?? 0);
+            return;
+        }
+        if (piece.type === 'Manticore' && this.manticoreSprite.loaded) {
+            const defaultFacing = piece.side === 'dark' ? 'W' : 'E';
+            this.drawWalkCycleSprite(this.manticoreSprite, cx, cy, spriteSize, facing ?? defaultFacing, frameIndex ?? 0);
             return;
         }
 
@@ -1718,6 +1957,206 @@ class ArchonGame {
         tryNext();
     }
 
+    loadDjinnSprite() {
+        // Paths pulled from SPRITE_PATHS configuration block
+        const candidates = SPRITE_PATHS.Djinn.walk;
+
+        this.loadWalkCycleSpriteSheet(
+            this.djinnSprite,
+            candidates,
+            [4, 3],
+            [8]
+        );
+    }
+
+    loadDjinnProjectileSprite() {
+        // Paths pulled from SPRITE_PATHS configuration block
+        const candidates = SPRITE_PATHS.Djinn.projectile;
+
+        const img = new Image();
+
+        let candidateIndex = 0;
+        const tryNext = () => {
+            if (candidateIndex >= candidates.length) {
+                this.djinnProjectileSprite.loaded = false;
+                return;
+            }
+            img.src = candidates[candidateIndex];
+            candidateIndex++;
+        };
+
+        img.onload = () => {
+            const frameH = img.height / 8;
+            if (!Number.isInteger(frameH)) {
+                this.djinnProjectileSprite.loaded = false;
+                return;
+            }
+
+            this.djinnProjectileSprite.img = img;
+            this.djinnProjectileSprite.cols = 1;
+            this.djinnProjectileSprite.rows = 8;
+            this.djinnProjectileSprite.frameW = img.width;
+            this.djinnProjectileSprite.frameH = frameH;
+            this.djinnProjectileSprite.loaded = this.djinnProjectileSprite.frameW > 0 && this.djinnProjectileSprite.frameH > 0;
+        };
+
+        img.onerror = () => {
+            tryNext();
+        };
+
+        tryNext();
+    }
+
+    loadManticoreSprite() {
+        // Paths pulled from SPRITE_PATHS configuration block
+        const candidates = SPRITE_PATHS.Manticore.walk;
+
+        this.loadWalkCycleSpriteSheet(
+            this.manticoreSprite,
+            candidates,
+            [4, 3],
+            [8]
+        );
+    }
+
+    loadManticoreProjectileSprite() {
+        // Paths pulled from SPRITE_PATHS configuration block
+        const candidates = SPRITE_PATHS.Manticore.projectile;
+
+        const img = new Image();
+
+        let candidateIndex = 0;
+        const tryNext = () => {
+            if (candidateIndex >= candidates.length) {
+                this.manticoreProjectileSprite.loaded = false;
+                return;
+            }
+            img.src = candidates[candidateIndex];
+            candidateIndex++;
+        };
+
+        img.onload = () => {
+            const frameH = img.height / 8;
+            if (!Number.isInteger(frameH)) {
+                this.manticoreProjectileSprite.loaded = false;
+                return;
+            }
+
+            this.manticoreProjectileSprite.img = img;
+            this.manticoreProjectileSprite.cols = 1;
+            this.manticoreProjectileSprite.rows = 8;
+            this.manticoreProjectileSprite.frameW = img.width;
+            this.manticoreProjectileSprite.frameH = frameH;
+            this.manticoreProjectileSprite.loaded = this.manticoreProjectileSprite.frameW > 0 && this.manticoreProjectileSprite.frameH > 0;
+        };
+
+        img.onerror = () => {
+            tryNext();
+        };
+
+        tryNext();
+    }
+
+    loadValkyrieSprite() {
+        // Paths pulled from SPRITE_PATHS configuration block
+        const candidates = SPRITE_PATHS.Valkyrie.walk;
+
+        this.loadWalkCycleSpriteSheet(
+            this.valkyrieSprite,
+            candidates,
+            [4, 3],
+            [8]
+        );
+    }
+
+    loadValkyrieProjectileSprite() {
+        // Paths pulled from SPRITE_PATHS configuration block
+        const candidates = SPRITE_PATHS.Valkyrie.projectile;
+
+        const img = new Image();
+
+        let candidateIndex = 0;
+        const tryNext = () => {
+            if (candidateIndex >= candidates.length) {
+                this.valkyrieProjectileSprite.loaded = false;
+                return;
+            }
+            img.src = candidates[candidateIndex];
+            candidateIndex++;
+        };
+
+        img.onload = () => {
+            const frameH = img.height / 8;
+            if (!Number.isInteger(frameH)) {
+                this.valkyrieProjectileSprite.loaded = false;
+                return;
+            }
+
+            this.valkyrieProjectileSprite.img = img;
+            this.valkyrieProjectileSprite.cols = 1;
+            this.valkyrieProjectileSprite.rows = 8;
+            this.valkyrieProjectileSprite.frameW = img.width;
+            this.valkyrieProjectileSprite.frameH = frameH;
+            this.valkyrieProjectileSprite.loaded = this.valkyrieProjectileSprite.frameW > 0 && this.valkyrieProjectileSprite.frameH > 0;
+        };
+
+        img.onerror = () => {
+            tryNext();
+        };
+
+        tryNext();
+    }
+
+    loadDragonSprite() {
+        // Paths pulled from SPRITE_PATHS configuration block
+        const candidates = SPRITE_PATHS.Dragon.walk;
+
+        this.loadWalkCycleSpriteSheet(
+            this.dragonSprite,
+            candidates,
+            [4, 3],
+            [8]
+        );
+    }
+
+    loadDragonProjectileSprite() {
+        // Paths pulled from SPRITE_PATHS configuration block
+        const candidates = SPRITE_PATHS.Dragon.projectile;
+
+        const img = new Image();
+
+        let candidateIndex = 0;
+        const tryNext = () => {
+            if (candidateIndex >= candidates.length) {
+                this.dragonProjectileSprite.loaded = false;
+                return;
+            }
+            img.src = candidates[candidateIndex];
+            candidateIndex++;
+        };
+
+        img.onload = () => {
+            const frameH = img.height / 8;
+            if (!Number.isInteger(frameH)) {
+                this.dragonProjectileSprite.loaded = false;
+                return;
+            }
+
+            this.dragonProjectileSprite.img = img;
+            this.dragonProjectileSprite.cols = 1;
+            this.dragonProjectileSprite.rows = 8;
+            this.dragonProjectileSprite.frameW = img.width;
+            this.dragonProjectileSprite.frameH = frameH;
+            this.dragonProjectileSprite.loaded = this.dragonProjectileSprite.frameW > 0 && this.dragonProjectileSprite.frameH > 0;
+        };
+
+        img.onerror = () => {
+            tryNext();
+        };
+
+        tryNext();
+    }
+
     resolveCombat(result) {
         if (!this.combat) return;
 
@@ -1945,6 +2384,33 @@ class ArchonGame {
                 continue;
             }
 
+            if (piece.type === 'Golem' && this.golemSprite.loaded) {
+                const walkFrame = piece.state === 'MOVING'
+                    ? Math.min(2, Math.floor((piece.walkAnimTime * 10) % 3))
+                    : 0;
+                const defaultFacing = piece.side === 'dark' ? 'W' : 'E';
+                this.drawWalkCycleSprite(this.golemSprite, cx, cy, tileSize, piece.facing ?? defaultFacing, walkFrame);
+                continue;
+            }
+
+            if (piece.type === 'Troll' && this.trollSprite.loaded) {
+                const walkFrame = piece.state === 'MOVING'
+                    ? Math.min(2, Math.floor((piece.walkAnimTime * 10) % 3))
+                    : 0;
+                const defaultFacing = piece.side === 'dark' ? 'W' : 'E';
+                this.drawWalkCycleSprite(this.trollSprite, cx, cy, tileSize, piece.facing ?? defaultFacing, walkFrame);
+                continue;
+            }
+
+            if (piece.type === 'Manticore' && this.manticoreSprite.loaded) {
+                const walkFrame = piece.state === 'MOVING'
+                    ? Math.min(2, Math.floor((piece.walkAnimTime * 10) % 3))
+                    : 0;
+                const defaultFacing = piece.side === 'dark' ? 'W' : 'E';
+                this.drawWalkCycleSprite(this.manticoreSprite, cx, cy, tileSize, piece.facing ?? defaultFacing, walkFrame);
+                continue;
+            }
+
             if (piece.type === 'Banshee' && this.bansheeSprite.loaded) {
                 let walkFrame = 0;
                 if (piece.state === 'MOVING') {
@@ -1956,6 +2422,51 @@ class ArchonGame {
                     }
                 }
                 this.drawWalkCycleSprite(this.bansheeSprite, cx, cy, tileSize, piece.facing ?? 'W', walkFrame);
+                continue;
+            }
+
+            if (piece.type === 'Dragon' && this.dragonSprite.loaded) {
+                let walkFrame = 0;
+                if (piece.state === 'MOVING') {
+                    const stats = this.getUnitStats(piece?.type);
+                    if (stats?.moveType === 'FLY' && piece.move) {
+                        walkFrame = Math.floor(((piece.move.stepT ?? 0) * 6)) % 3;
+                    } else {
+                        walkFrame = Math.min(2, Math.floor((piece.walkAnimTime * 10) % 3));
+                    }
+                }
+                const facing = piece.facing ?? (piece.side === 'dark' ? 'W' : 'E');
+                this.drawWalkCycleSprite(this.dragonSprite, cx, cy, tileSize, facing, walkFrame);
+                continue;
+            }
+
+            if (piece.type === 'Valkyrie' && this.valkyrieSprite.loaded) {
+                let walkFrame = 0;
+                if (piece.state === 'MOVING') {
+                    const stats = this.getUnitStats(piece?.type);
+                    if (stats?.moveType === 'FLY' && piece.move) {
+                        walkFrame = Math.floor(((piece.move.stepT ?? 0) * 6)) % 3;
+                    } else {
+                        walkFrame = Math.min(2, Math.floor((piece.walkAnimTime * 10) % 3));
+                    }
+                }
+                const facing = piece.facing ?? (piece.side === 'dark' ? 'W' : 'E');
+                this.drawWalkCycleSprite(this.valkyrieSprite, cx, cy, tileSize, facing, walkFrame);
+                continue;
+            }
+
+            if (piece.type === 'Djinn' && this.djinnSprite.loaded) {
+                let walkFrame = 0;
+                if (piece.state === 'MOVING') {
+                    const stats = this.getUnitStats(piece?.type);
+                    if (stats?.moveType === 'FLY' && piece.move) {
+                        walkFrame = Math.floor(((piece.move.stepT ?? 0) * 6)) % 3;
+                    } else {
+                        walkFrame = Math.min(2, Math.floor((piece.walkAnimTime * 10) % 3));
+                    }
+                }
+                const facing = piece.facing ?? (piece.side === 'dark' ? 'W' : 'E');
+                this.drawWalkCycleSprite(this.djinnSprite, cx, cy, tileSize, facing, walkFrame);
                 continue;
             }
 
@@ -2012,6 +2523,106 @@ class ArchonGame {
         img.onload = () => {
             this.knightSwordSprite.img = img;
             this.knightSwordSprite.loaded = true;
+        };
+
+        img.onerror = () => {
+            tryNext();
+        };
+
+        tryNext();
+    }
+
+    loadTrollSprite() {
+        // Paths pulled from SPRITE_PATHS configuration block
+        const candidates = SPRITE_PATHS.Troll.walk;
+
+        this.loadWalkCycleSpriteSheet(
+            this.trollSprite,
+            candidates,
+            [4, 3],
+            [8]
+        );
+    }
+
+    loadTrollProjectileSprite() {
+        // Paths pulled from SPRITE_PATHS configuration block
+        const candidates = SPRITE_PATHS.Troll.projectile;
+
+        const img = new Image();
+
+        let candidateIndex = 0;
+        const tryNext = () => {
+            if (candidateIndex >= candidates.length) {
+                this.trollProjectileSprite.loaded = false;
+                return;
+            }
+            img.src = candidates[candidateIndex];
+            candidateIndex++;
+        };
+
+        img.onload = () => {
+            const frameH = img.height / 8;
+            if (!Number.isInteger(frameH)) {
+                this.trollProjectileSprite.loaded = false;
+                return;
+            }
+
+            this.trollProjectileSprite.img = img;
+            this.trollProjectileSprite.cols = 1;
+            this.trollProjectileSprite.rows = 8;
+            this.trollProjectileSprite.frameW = img.width;
+            this.trollProjectileSprite.frameH = frameH;
+            this.trollProjectileSprite.loaded = this.trollProjectileSprite.frameW > 0 && this.trollProjectileSprite.frameH > 0;
+        };
+
+        img.onerror = () => {
+            tryNext();
+        };
+
+        tryNext();
+    }
+
+    loadGolemSprite() {
+        // Paths pulled from SPRITE_PATHS configuration block
+        const candidates = SPRITE_PATHS.Golem.walk;
+
+        this.loadWalkCycleSpriteSheet(
+            this.golemSprite,
+            candidates,
+            [4, 3],
+            [8]
+        );
+    }
+
+    loadGolemProjectileSprite() {
+        // Paths pulled from SPRITE_PATHS configuration block
+        const candidates = SPRITE_PATHS.Golem.projectile;
+
+        const img = new Image();
+
+        let candidateIndex = 0;
+        const tryNext = () => {
+            if (candidateIndex >= candidates.length) {
+                this.golemProjectileSprite.loaded = false;
+                return;
+            }
+            img.src = candidates[candidateIndex];
+            candidateIndex++;
+        };
+
+        img.onload = () => {
+            const frameH = img.height / 8;
+            if (!Number.isInteger(frameH)) {
+                this.golemProjectileSprite.loaded = false;
+                return;
+            }
+
+            this.golemProjectileSprite.img = img;
+            this.golemProjectileSprite.cols = 1;
+            this.golemProjectileSprite.rows = 8;
+            this.golemProjectileSprite.frameW = img.width;
+            this.golemProjectileSprite.frameH = frameH;
+            this.golemProjectileSprite.loaded = this.golemProjectileSprite.frameW > 0 && this.golemProjectileSprite.frameH > 0;
         };
 
         img.onerror = () => {
@@ -2463,16 +3074,27 @@ class ArchonGame {
         const startIndex = startStack.indexOf(piece);
         if (startIndex >= 0) startStack.splice(startIndex, 1);
 
+        const path = [];
+        {
+            let cx = startX;
+            let cy = startY;
+            while (cx !== destX || cy !== destY) {
+                if (cx !== destX) cx += Math.sign(destX - cx);
+                if (cy !== destY) cy += Math.sign(destY - cy);
+                path.push({ x: cx, y: cy });
+            }
+        }
+
         piece.state = 'MOVING';
-        piece.remainingMove = 1;
+        piece.remainingMove = path.length;
         piece.move = {
-            path: [{ x: destX, y: destY }],
+            path,
             stepIndex: 0,
             stepT: 0,
             stepDuration: STRATEGY_STEP_DURATION,
             capture: captureResult,
             from: { x: startX, y: startY },
-            to: { x: destX, y: destY }
+            to: { x: path[0].x, y: path[0].y }
         };
 
         // Initialize render position at the current grid center.
@@ -2481,7 +3103,7 @@ class ArchonGame {
         piece.renderX = startCenter.x;
         piece.renderY = startCenter.y;
         piece.walkAnimTime = 0;
-        piece.facing = this.directionFromDelta(dx, dy);
+        piece.facing = this.directionFromDelta(path[0].x - startX, path[0].y - startY);
 
         if (captureResult) return captureResult;
         return { type: 'move', pieceId: piece.id, square: { x: destX, y: destY } };
@@ -2522,31 +3144,38 @@ class ArchonGame {
         const startIndex = startStack.indexOf(piece);
         if (startIndex >= 0) startStack.splice(startIndex, 1);
 
-        // Instant move (no movement animation).
-        piece.col = destX;
-        piece.row = destY;
-        piece.state = 'IDLE';
-        piece.move = null;
-        piece.renderX = undefined;
-        piece.renderY = undefined;
+        const path = [];
+        {
+            let cx = startX;
+            let cy = startY;
+            while (cx !== destX || cy !== destY) {
+                if (cx !== destX) cx += Math.sign(destX - cx);
+                if (cy !== destY) cy += Math.sign(destY - cy);
+                path.push({ x: cx, y: cy });
+            }
+        }
+
+        piece.state = 'MOVING';
+        piece.remainingMove = path.length;
+        piece.move = {
+            path,
+            stepIndex: 0,
+            stepT: 0,
+            stepDuration: STRATEGY_STEP_DURATION,
+            capture: captureResult,
+            from: { x: startX, y: startY },
+            to: { x: path[0].x, y: path[0].y }
+        };
+
+        // Initialize render position at the current grid center.
+        const layout = this.boardLayout ?? this.computeBoardLayout();
+        const startCenter = this.gridToCanvasCenter(startX, startY, layout);
+        piece.renderX = startCenter.x;
+        piece.renderY = startCenter.y;
         piece.walkAnimTime = 0;
-        piece.remainingMove = 0;
-        piece.facing = this.directionFromDelta(dx, dy);
+        piece.facing = this.directionFromDelta(path[0].x - startX, path[0].y - startY);
 
-        if (!destStack.includes(piece)) destStack.push(piece);
-
-        if (captureResult) {
-            this.startCombat(captureResult);
-            return captureResult;
-        }
-
-        if (piece.side === 'light') {
-            piece.facing = 'E';
-        } else if (piece.side === 'dark') {
-            piece.facing = 'W';
-        }
-
-        this.endTurn();
+        if (captureResult) return captureResult;
         return { type: 'move', pieceId: piece.id, square: { x: destX, y: destY } };
     }
 
@@ -2695,7 +3324,7 @@ class ArchonGame {
                 continue;
             }
 
-            m.stepT += deltaTime / m.stepDuration;
+            m.stepT += deltaTime / STRATEGY_STEP_DURATION;
             if (m.stepT > 1) m.stepT = 1;
 
             const layout = this.boardLayout ?? this.computeBoardLayout();
