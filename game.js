@@ -273,6 +273,7 @@ const DEBUG_COLLISION = false;
 const UNIT_STATS = {
     Knight: {
         combatType: 'MELEE',
+        baseHP: 4.5,
         maxHP: 11.5,
         moveType: 'WALK',
         moveRange: 3,
@@ -280,11 +281,11 @@ const UNIT_STATS = {
         attackDamage: 5,
         attackDuration: 0.35,
         attacksPerSecond: 1.5,
-        meleeWidthH: 2,
-        meleeWidthV: 4
+        canMoveWhileAttacking: false
     },
     Goblin: {
         combatType: 'MELEE',
+        baseHP: 4.5,
         maxHP: 11.5,
         moveType: 'WALK',
         moveRange: 3,
@@ -292,173 +293,9 @@ const UNIT_STATS = {
         attackDamage: 5,
         attackDuration: 0.35,
         attacksPerSecond: 1.5,
-        meleeWidthH: 2,
-        meleeWidthV: 4
+        canMoveWhileAttacking: false
     },
     Wizard: {
-        combatType: 'PROJECTILE',
-        maxHP: 16.5,
-        moveType: 'TELEPORT',
-        moveRange: 3,
-        speed: 240,
-        attackDamage: 10,
-        attackDuration: 0.35,
-        attacksPerSecond: 0.75,
-        shotSpeedMultiplier: 0.8,
-        projectileWidthH: 6,
-        projectileWidthV: 8
-    },
-    Archer: {
-        combatType: 'PROJECTILE',
-        maxHP: 11.5,
-        moveType: 'WALK',
-        moveRange: 3,
-        speed: 240,
-        attackDamage: 5,
-        attackDuration: 0.35,
-        attacksPerSecond: 1.2,
-        shotSpeedMultiplier: 1.0,
-        projectileWidthH: 6,
-        projectileWidthV: 8
-    },
-    Banshee: {
-        combatType: 'AURA',
-        moveType: 'FLY',
-        moveRange: 3,
-        maxHP: 16.5,
-        speed: 240,
-        attackDamage: 0,
-        attackDuration: 0.35,
-        attacksPerSecond: 1,
-        auraRadiusMultiplier: 0.85,
-        auraDamagePerSecond: 5
-    },
-    Phoenix: {
-        combatType: 'AURA',
-        moveType: 'FLY',
-        moveRange: 3,
-        maxHP: 16.5,
-        speed: 240,
-        attackDamage: 0,
-        attackDuration: 0.35,
-        attacksPerSecond: 1,
-        auraRadiusMultiplier: 0.85,
-        auraDamagePerSecond: 5
-    },
-    Manticore: {
-        combatType: 'PROJECTILE',
-        maxHP: 14,
-        moveType: 'WALK',
-        moveRange: 3,
-        speed: 220,
-        attackDamage: 6,
-        attackDuration: 0.35,
-        attacksPerSecond: 1.0,
-        shotSpeedMultiplier: 0.9,
-        projectileWidthH: 8,
-        projectileWidthV: 10
-    },
-    Golem: {
-        combatType: 'PROJECTILE',
-        maxHP: 10,
-        moveType: 'WALK',
-        moveRange: 3,
-        speed: 200,
-        attackDamage: 10,
-        attackDuration: 0.35,
-        attacksPerSecond: 1
-    },
-    Troll: {
-        combatType: 'PROJECTILE',
-        maxHP: 18.5,
-        moveType: 'WALK',
-        moveRange: 3,
-        speed: 170,
-        attackDamage: 8,
-        attackDuration: 0.45,
-        attacksPerSecond: 0.8,
-        shotSpeedMultiplier: 0.7,
-        projectileWidthH: 8,
-        projectileWidthV: 10
-    },
-    Unicorn: {
-        combatType: 'PROJECTILE',
-        baseHP: 8.5,
-        maxHP: 15.5,
-        moveType: 'WALK',
-        moveRange: 4,
-        speed: 240,
-        attackDamage: 8,
-        attackDuration: 0.35,
-        attacksPerSecond: 1.0,
-        shotSpeedMultiplier: 0.9,
-        projectileWidthH: 6,
-        projectileWidthV: 8
-    },
-    Basilisk: {
-        combatType: 'PROJECTILE',
-        baseHP: 5.5,
-        maxHP: 12.5,
-        moveType: 'WALK',
-        moveRange: 3,
-        speed: 240,
-        attackDamage: 9,
-        attackDuration: 0.35,
-        attacksPerSecond: 1.0,
-        shotSpeedMultiplier: 1.0,
-        projectileWidthH: 3,
-        projectileWidthV: 10
-    },
-    Valkyrie: {
-        combatType: 'PROJECTILE',
-        maxHP: 10,
-        moveType: 'FLY',
-        moveRange: 3,
-        speed: 220,
-        attackDamage: 6,
-        attackDuration: 0.35,
-        attacksPerSecond: 1.0,
-        shotSpeedMultiplier: 1.0,
-        projectileWidthH: 6,
-        projectileWidthV: 8
-    },
-    'Shape Shifter': {
-        combatType: 'MELEE',
-        maxHP: 10,
-        moveType: 'FLY',
-        moveRange: 5,
-        speed: 200,
-        attackDamage: 1,
-        attackDuration: 0.35,
-        attacksPerSecond: 1
-    },
-    Djinn: {
-        combatType: 'PROJECTILE',
-        maxHP: 12,
-        moveType: 'FLY',
-        moveRange: 3,
-        speed: 230,
-        attackDamage: 7,
-        attackDuration: 0.35,
-        attacksPerSecond: 1.0,
-        shotSpeedMultiplier: 1.1,
-        projectileWidthH: 6,
-        projectileWidthV: 8
-    },
-    Dragon: {
-        combatType: 'PROJECTILE',
-        maxHP: 23.5,
-        moveType: 'FLY',
-        moveRange: 4,
-        speed: 200,
-        attackDamage: 8,
-        attackDuration: 0.35,
-        attacksPerSecond: 0.75,
-        shotSpeedMultiplier: 1.0,
-        projectileWidthH: 10,
-        projectileWidthV: 14
-    },
-    Sorceress: {
         combatType: 'PROJECTILE',
         baseHP: 9.5,
         maxHP: 16.5,
@@ -468,9 +305,177 @@ const UNIT_STATS = {
         attackDamage: 10,
         attackDuration: 0.35,
         attacksPerSecond: 0.75,
-        shotSpeedMultiplier: 0.8,
-        projectileWidthH: 6,
-        projectileWidthV: 10
+        shotSpeedMultiplier: 1.0,
+        canMoveWhileAttacking: false
+    },
+    Archer: {
+        combatType: 'PROJECTILE',
+        baseHP: 4.5,
+        maxHP: 11.5,
+        moveType: 'WALK',
+        moveRange: 3,
+        speed: 240,
+        attackDamage: 5,
+        attackDuration: 0.35,
+        attacksPerSecond: 1.2,
+        shotSpeedMultiplier: 1.0,
+        canMoveWhileAttacking: false
+    },
+    Banshee: {
+        combatType: 'AURA',
+        moveType: 'FLY',
+        moveRange: 3,
+        baseHP: 7.5,
+        maxHP: 14.5,
+        speed: 240,
+        attackDamage: 0,
+        attackDuration: 0.35,
+        attacksPerSecond: 1,
+        auraRadiusMultiplier: 0.85,
+        auraDamagePerSecond: 5,
+        canMoveWhileAttacking: true
+    },
+    Phoenix: {
+        combatType: 'AURA',
+        moveType: 'FLY',
+        moveRange: 3,
+        baseHP: 11.5,
+        maxHP: 16.5,
+        speed: 240,
+        attackDamage: 0,
+        attackDuration: 0.35,
+        attacksPerSecond: .6,
+        auraRadiusMultiplier: 0.85,
+        auraDamagePerSecond: 5,
+        canMoveWhileAttacking: false
+    },
+    Manticore: {
+        combatType: 'PROJECTILE',
+        baseHP: 7.5,
+        maxHP: 14.5,
+        moveType: 'WALK',
+        moveRange: 3,
+        speed: 220,
+        attackDamage: 4,
+        attackDuration: 0.35,
+        attacksPerSecond: 1.0,
+        shotSpeedMultiplier: 0.9,
+        canMoveWhileAttacking: false
+    },
+    Golem: {
+        combatType: 'PROJECTILE',
+        baseHP: 14.5,
+        maxHP: 21.5,
+        moveType: 'WALK',
+        moveRange: 3,
+        speed: 170,
+        attackDamage: 10,
+        attackDuration: 0.35,
+        attacksPerSecond: .6,
+        canMoveWhileAttacking: false
+    },
+    Troll: {
+        combatType: 'PROJECTILE',
+        baseHP: 13.5,
+        maxHP: 20.5,
+        moveType: 'WALK',
+        moveRange: 3,
+        speed: 170,
+        attackDamage: 8,
+        attackDuration: 0.45,
+        attacksPerSecond: 0.6,
+        shotSpeedMultiplier: 0.7,
+        canMoveWhileAttacking: false
+    },
+    Unicorn: {
+        combatType: 'PROJECTILE',
+        baseHP: 8.5,
+        maxHP: 15.5,
+        moveType: 'WALK',
+        moveRange: 4,
+        speed: 300,
+        attackDamage: 8,
+        attackDuration: 0.2,
+        attacksPerSecond: 1.0,
+        shotSpeedMultiplier: 1.7,
+        canMoveWhileAttacking: false
+    },
+    Basilisk: {
+        combatType: 'PROJECTILE',
+        baseHP: 5.5,
+        maxHP: 12.5,
+        moveType: 'WALK',
+        moveRange: 3,
+        speed: 310,
+        attackDamage: 9,
+        attackDuration: 0.15,
+        attacksPerSecond: 1.0,
+        shotSpeedMultiplier: 1.9,
+        canMoveWhileAttacking: false
+    },
+    Valkyrie: {
+        combatType: 'PROJECTILE',
+        baseHP: 7.5,
+        maxHP: 10,
+        moveType: 'FLY',
+        moveRange: 3,
+        speed: 220,
+        attackDamage: 6,
+        attackDuration: 0.35,
+        attacksPerSecond: 1.0,
+        shotSpeedMultiplier: 1.0,
+        canMoveWhileAttacking: false
+    },
+    'Shape Shifter': {
+        combatType: 'MELEE',
+        baseHP: 0,
+        maxHP: 10,
+        moveType: 'FLY',
+        moveRange: 5,
+        speed: 200,
+        attackDamage: 1,
+        attackDuration: 0.35,
+        attacksPerSecond: 1,
+        canMoveWhileAttacking: false
+    },
+    Djinn: {
+        combatType: 'PROJECTILE',
+        baseHP: 14.5,
+        maxHP: 21.5,
+        moveType: 'FLY',
+        moveRange: 4,
+        speed: 250,
+        attackDamage: 6,
+        attackDuration: 0.35,
+        attacksPerSecond: 1.0,
+        shotSpeedMultiplier: 1.3,
+        canMoveWhileAttacking: false
+    },
+    Dragon: {
+        combatType: 'PROJECTILE',
+        baseHP: 16.5,
+        maxHP: 23.5,
+        moveType: 'FLY',
+        moveRange: 4,
+        speed: 230,
+        attackDamage: 11,
+        attackDuration: 0.35,
+        attacksPerSecond: 0.5,
+        shotSpeedMultiplier: 1.1,
+        canMoveWhileAttacking: false
+    },
+    Sorceress: {
+        combatType: 'PROJECTILE',
+        baseHP: 9.5,
+        maxHP: 16.5,
+        moveType: 'TELEPORT',
+        moveRange: 3,
+        speed: 240,
+        attackDamage: 8,
+        attackDuration: 0.25,
+        attacksPerSecond: 0.75,
+        shotSpeedMultiplier: 1.3,
+        canMoveWhileAttacking: false
     }
 };
 
@@ -480,6 +485,38 @@ class ArchonGame {
         this.ctx = this.canvas.getContext('2d');
         this.width = this.canvas.width;
         this.height = this.canvas.height;
+
+        this.appleFontLoaded = false;
+        (async () => {
+            try {
+                const font = new FontFace('AppleII', 'url(assets/splashconfig/apple-ii.otf.woff2)');
+                await font.load();
+                document.fonts.add(font);
+                this.appleFontLoaded = true;
+            } catch (e) {
+                this.appleFontLoaded = false;
+            }
+        })();
+
+        this.splashImage = new Image();
+        this.splashLoaded = false;
+        this.splashImage.onload = () => {
+            this.splashLoaded = true;
+        };
+        this.splashImage.src = 'assets/splashconfig/Splash Screen.png';
+        this.splashStartTime = performance.now();
+
+        this.handPointerImage = new Image();
+        this.handPointerLoaded = false;
+        this.handPointerImage.onload = () => {
+            this.handPointerLoaded = true;
+        };
+        this.handPointerImage.src = 'assets/splashconfig/Hand Pointer.png';
+
+        this.mouseX = 0;
+        this.mouseY = 0;
+        this.clickZones = [];
+        this.configState = null;
 
         this.auraCanvas = document.createElement('canvas');
         this.auraCtx = this.auraCanvas.getContext('2d');
@@ -498,7 +535,7 @@ class ArchonGame {
 
         this.currentSide = 'light';
         this.illegalFlash = null;
-        this.gameState = 'STRATEGY';
+        this.gameState = 'SPLASH';
         this.strategyInputLocked = false;
         this.combat = null;
         
@@ -509,6 +546,9 @@ class ArchonGame {
 
         this.boardSize = 9;
         this.boardColorCodes = this.createInitialBoardColorCodesLightFirst();
+        this.boardRotates = this.createInitialBoardRotates();
+        this.boardColorDirection = +1;
+        this.boardFirstMover = 'light';
         this.squareHexColors = {
             A: '#FFFFFF',
             B: '#CCCCCC',
@@ -959,6 +999,14 @@ class ArchonGame {
         return piece.type;
     }
 
+    isActorInvulnerable(actor, piece) {
+        if (!actor || !piece) return false;
+        const effectiveType = this.getEffectiveCombatTypeForPiece(piece);
+        if (effectiveType === 'Phoenix' && (actor.auraState ?? 'idle') !== 'idle') return true;
+        if (effectiveType === 'Banshee' && actor.isAttacking) return true;
+        return false;
+    }
+
     getSpriteImageForPiece(spriteObj, piece, preferBlue) {
         if (preferBlue && spriteObj?.blueLoaded && spriteObj?.blueImg) return spriteObj.blueImg;
         return spriteObj?.img ?? null;
@@ -1085,9 +1133,32 @@ class ArchonGame {
     }
 
     calculateEffectiveMaxHP(piece) {
-        const type = piece?.type;
-        const baseHP = UNIT_STATS[type]?.maxHP;
-        return baseHP;
+        if (!piece) return null;
+
+        const hpForType = (type) => {
+            if (!type) return null;
+            const stats = UNIT_STATS[type];
+            if (!stats) return null;
+            return (stats.baseHP ?? stats.maxHP) ?? null;
+        };
+
+        if (piece.type !== 'Shape Shifter') {
+            return hpForType(piece.type);
+        }
+
+        if (this.gameState === 'COMBAT' && this.combat) {
+            let copiedType = null;
+            if (piece.id === this.combat.lightPieceId && this.combat.lightCopiedType) {
+                copiedType = this.combat.lightCopiedType;
+            } else if (piece.id === this.combat.darkPieceId && this.combat.darkCopiedType) {
+                copiedType = this.combat.darkCopiedType;
+            }
+
+            const copiedHP = hpForType(copiedType);
+            if (copiedHP != null) return copiedHP;
+        }
+
+        return hpForType('Shape Shifter');
     }
     
     init() {
@@ -1101,6 +1172,23 @@ class ArchonGame {
     setupEventListeners() {
         // Keyboard events
         window.addEventListener('keydown', (e) => {
+            if (this.gameState === 'SPLASH') {
+                this.enterStrategyFromSplash();
+                e.preventDefault();
+                return;
+            }
+            if (this.gameState === 'CONFIG') {
+                if (e.code === 'Space') {
+                    this.enterStrategyFromConfig();
+                    e.preventDefault();
+                    return;
+                }
+                if (e.code === 'Escape') {
+                    this.keys[e.code] = true;
+                }
+                e.preventDefault();
+                return;
+            }
             if (e.code === 'KeyT') {
                 this.selectedPiece = null;
                 this.currentSide = this.currentSide === 'light' ? 'dark' : 'light';
@@ -1128,6 +1216,13 @@ class ArchonGame {
         // Mouse events
         this.canvas.addEventListener('mousedown', (e) => {
             this.handleCanvasMouseDown(e);
+        });
+
+        this.canvas.addEventListener('mousemove', (e) => {
+            const pos = this.getCanvasCoordsFromMouseEvent(e);
+            if (!pos) return;
+            this.mouseX = pos.x;
+            this.mouseY = pos.y;
         });
     }
     
@@ -1192,9 +1287,244 @@ class ArchonGame {
             }
         }
     }
+
+    renderConfig() {
+        this.ctx.fillStyle = '#000';
+        this.ctx.fillRect(0, 0, this.width, this.height);
+
+        if (!this.configState) {
+            this.configState = {
+                playing: 'TWO_PLAYERS_BOTH_ON_KEYBOARD',
+                sound: 'SOUND_ON',
+                order: 'LIGHT_FIRST'
+            };
+        }
+
+        const family = this.appleFontLoaded ? 'AppleII' : 'monospace';
+        this.ctx.fillStyle = '#fff';
+        this.ctx.textBaseline = 'top';
+
+        const drawBoldText = (text, x, y, color) => {
+            this.ctx.fillStyle = color;
+            this.ctx.fillText(text, x, y);
+            this.ctx.fillText(text, x + 1, y);
+        };
+
+        this.clickZones = [];
+
+        const drawSelectableText = (group, value, text, x, y) => {
+            const selected = !!this.configState && this.configState[group] === value;
+            const m = this.ctx.measureText(text);
+            const pad = 6;
+            const rectX = Math.floor(x - pad);
+            const rectW = Math.ceil(m.width + pad * 2 + 1);
+
+            const highlightHeight = Math.floor(lineH * 0.90);
+            const extraTop = Math.floor(lineH * 0.08);
+            const rectY = Math.floor(y - extraTop);
+            const rectH = highlightHeight;
+
+            this.clickZones.push({ type: group, value, x: rectX, y: rectY, width: rectW, height: rectH });
+
+            if (selected) {
+                this.ctx.fillStyle = '#fff';
+                this.ctx.fillRect(rectX, rectY, rectW, rectH);
+                drawBoldText(text, x, y, '#000');
+            } else {
+                drawBoldText(text, x, y, '#fff');
+            }
+        };
+
+        const drawAcceptText = (text, x, y) => {
+            const m = this.ctx.measureText(text);
+            const pad = 6;
+            const rectX = Math.floor(x - pad);
+            const rectW = Math.ceil(m.width + pad * 2 + 1);
+
+            const highlightHeight = Math.floor(lineH * 0.90);
+            const extraTop = Math.floor(lineH * 0.08);
+            const rectY = Math.floor(y - extraTop);
+            const rectH = highlightHeight;
+            this.clickZones.push({ type: 'accept', value: 'ACCEPT', x: rectX, y: rectY, width: rectW, height: rectH });
+            drawBoldText(text, x, y, '#fff');
+        };
+
+        // Smaller font so everything fits like original
+        this.ctx.font = `22px ${family}`;
+        this.ctx.textAlign = 'left';
+
+        const marginLeft = 80;
+        const marginRight = this.width - 80;
+        const lineH = 26;
+        const sectionGap = 34;
+        const playingToSoundGap = sectionGap + Math.round(lineH * 1.5);
+        const soundToOrderGap = sectionGap + Math.round(lineH * 1.25);
+        const orderToKeyboardGap = sectionGap + Math.round(lineH * 1.25);
+        const keyboardTopPad = Math.round(lineH * 0.75);
+        const acceptTopGap = sectionGap + Math.round(lineH * 2.5);
+
+        let y = 40;
+
+        // Title centered like original
+        this.ctx.textAlign = 'center';
+        this.ctx.font = `26px ${family}`;
+        drawBoldText('ARCHON GAME OPTIONS', this.width / 2, y, '#fff');
+        y += sectionGap;
+
+        this.ctx.font = `22px ${family}`;
+        drawBoldText('POINT AT OPTION WITH HAND, PRESS BUTTON', this.width / 2, y, '#fff');
+        y += sectionGap + 10;
+
+        this.ctx.textAlign = 'left';
+
+        // PLAYING OPTIONS
+        drawBoldText('PLAYING OPTIONS:', marginLeft, y, '#fff');
+        y += lineH;
+
+        drawSelectableText('playing', 'ONE_PLAYER_COMPUTER_LIGHT', 'ONE PLAYER, COMPUTER LIGHT', marginLeft + 20, y);
+        y += lineH;
+
+        drawSelectableText('playing', 'ONE_PLAYER_COMPUTER_DARK', 'ONE PLAYER, COMPUTER DARK', marginLeft + 20, y);
+        y += lineH;
+
+        drawSelectableText('playing', 'TWO_PLAYERS_DARK_ON_KEYBOARD', 'TWO PLAYERS, DARK ON KEYBOARD', marginLeft + 20, y);
+        y += lineH;
+
+        drawSelectableText('playing', 'TWO_PLAYERS_LIGHT_ON_KEYBOARD', 'TWO PLAYERS, LIGHT ON KEYBOARD', marginLeft + 20, y);
+        y += lineH;
+
+        drawSelectableText('playing', 'TWO_PLAYERS_BOTH_ON_KEYBOARD', 'TWO PLAYERS, BOTH ON KEYBOARD', marginLeft + 20, y);
+        y += playingToSoundGap;
+
+        // SOUND
+        drawBoldText('SOUND CONTROL:', marginLeft, y, '#fff');
+        y += lineH;
+
+        drawSelectableText('sound', 'SOUND_ON', 'SOUND ON', marginLeft + 20, y);
+        drawSelectableText('sound', 'SOUND_OFF', 'SOUND OFF', marginLeft + 260, y);
+        y += soundToOrderGap;
+
+        // ORDER
+        drawBoldText('ORDER', marginLeft, y, '#fff');
+        y += lineH;
+
+        drawSelectableText('order', 'LIGHT_FIRST', 'LIGHT FIRST', marginLeft + 20, y);
+        drawSelectableText('order', 'DARK_FIRST', 'DARK FIRST', marginLeft + 260, y);
+        y += orderToKeyboardGap;
+
+        y += keyboardTopPad;
+
+        // KEYBOARD CONTROLS – side by side columns
+        const leftColX = marginLeft;
+        const rightColX = this.width / 2 + 80;
+
+        drawBoldText('KEYBOARD LIGHT:', leftColX, y, '#fff');
+        drawBoldText('KEYBOARD DARK:', rightColX, y, '#fff');
+        y += lineH;
+
+        drawBoldText('FIRE: SPACE BAR', leftColX + 20, y, '#fff');
+        drawBoldText('FIRE: RETURN', rightColX + 20, y, '#fff');
+        y += lineH;
+
+        drawBoldText('MOVE: WASD', leftColX + 20, y, '#fff');
+        drawBoldText('MOVE: ARROW KEYS', rightColX + 20, y, '#fff');
+        y += acceptTopGap;
+
+        y = Math.max(y, this.height - 90);
+
+        // Accept line
+        drawAcceptText('□ ACCEPT OPTION, BEGIN THE BATTLE', marginLeft, y);
+
+        if (this.handPointerLoaded) {
+            const prev = this.ctx.imageSmoothingEnabled;
+            this.ctx.imageSmoothingEnabled = false;
+            const px = Math.floor(this.mouseX - 2);
+            const py = Math.floor(this.mouseY - 2);
+            this.ctx.drawImage(this.handPointerImage, px, py);
+            this.ctx.imageSmoothingEnabled = prev;
+        }
+    }
+
+    updateSplash(deltaTime) {
+        const now = performance.now();
+        if ((now - (this.splashStartTime ?? now)) >= 7000) {
+            this.enterStrategyFromSplash();
+        }
+    }
+
+    enterStrategyFromSplash() {
+        if (this.gameState !== 'SPLASH') return;
+        this.gameState = 'CONFIG';
+        this.keys = {};
+
+        this.canvas.style.cursor = 'none';
+        if (!this.configState) {
+            this.configState = {
+                playing: 'TWO_PLAYERS_BOTH_ON_KEYBOARD',
+                sound: 'SOUND_ON',
+                order: 'LIGHT_FIRST'
+            };
+        }
+    }
+
+    enterStrategyFromConfig() {
+        if (this.gameState !== 'CONFIG') return;
+        this.gameState = 'STRATEGY';
+        this.keys = {};
+        this.canvas.style.cursor = 'default';
+    }
+
+    acceptConfigAndEnterStrategy() {
+        if (this.gameState !== 'CONFIG') return;
+        this.gameConfig = { ...this.configState };
+
+        this.applyBoardConfigurationForOrder(this.gameConfig.order);
+
+        this.boardLayout = null;
+        this.gameState = 'STRATEGY';
+        this.canvas.style.cursor = 'default';
+        this.keys = {};
+    }
+
+    getCanvasCoordsFromMouseEvent(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const scaleX = this.canvas.width / rect.width;
+        const scaleY = this.canvas.height / rect.height;
+        return {
+            x: (e.clientX - rect.left) * scaleX,
+            y: (e.clientY - rect.top) * scaleY
+        };
+    }
+
+    renderSplash() {
+        this.ctx.fillStyle = '#000';
+        this.ctx.fillRect(0, 0, this.width, this.height);
+
+        if (!this.splashLoaded) return;
+
+        const img = this.splashImage;
+        const iw = img.naturalWidth || img.width;
+        const ih = img.naturalHeight || img.height;
+        if (!iw || !ih) return;
+
+        const scale = Math.min(1, this.width / iw, this.height / ih);
+        const dw = Math.floor(iw * scale);
+        const dh = Math.floor(ih * scale);
+        const dx = Math.floor((this.width - dw) / 2);
+        const dy = Math.floor((this.height - dh) / 2);
+
+        const prevSmoothing = this.ctx.imageSmoothingEnabled;
+        this.ctx.imageSmoothingEnabled = false;
+        this.ctx.drawImage(img, dx, dy, dw, dh);
+        this.ctx.imageSmoothingEnabled = prevSmoothing;
+    }
     
     update(deltaTime) {
-        if (this.gameState === 'COMBAT') {
+        if (this.gameState === 'SPLASH') {
+            this.updateSplash(deltaTime);
+        } else if (this.gameState === 'CONFIG') {
+            // no interaction yet
+        } else if (this.gameState === 'COMBAT') {
             this.updateCombat(deltaTime);
         } else {
             this.updateStrategy(deltaTime);
@@ -1484,6 +1814,13 @@ class ArchonGame {
             actor.y = Math.max(arena.ay + half, Math.min(arena.ay + arena.arenaH - half, actor.y));
         };
 
+        const shouldBlockMovementWhileAttacking = (actor, piece) => {
+            if (!actor?.isAttacking) return false;
+            const effectiveType = this.getEffectiveCombatTypeForPiece(piece);
+            const canMoveWhileAttacking = UNIT_STATS[effectiveType]?.canMoveWhileAttacking ?? false;
+            return !canMoveWhileAttacking;
+        };
+
         const moveActor = (actor, piece, dx, dy) => {
             if (!actor) return;
             if (dx === 0 && dy === 0) {
@@ -1510,7 +1847,7 @@ class ArchonGame {
             const l = lightActor;
             let dx = 0;
             let dy = 0;
-            if (!l?.isAttacking) {
+            if (!shouldBlockMovementWhileAttacking(l, lightPiece)) {
                 if (this.keys['KeyA']) dx -= 1;
                 if (this.keys['KeyD']) dx += 1;
                 if (this.keys['KeyW']) dy -= 1;
@@ -1523,7 +1860,7 @@ class ArchonGame {
             const d = darkActor;
             let dx = 0;
             let dy = 0;
-            if (!d?.isAttacking) {
+            if (!shouldBlockMovementWhileAttacking(d, darkPiece)) {
                 if (this.keys['ArrowLeft']) dx -= 1;
                 if (this.keys['ArrowRight']) dx += 1;
                 if (this.keys['ArrowUp']) dy -= 1;
@@ -1566,7 +1903,7 @@ class ArchonGame {
             return { x: Math.floor(cx - zoneW / 2), y: Math.floor(cy - zoneH / 2), w: zoneW, h: zoneH };
         };
 
-        const tryApplyAttackDamage = (attackerActor, attackerPiece, defenderActor) => {
+        const tryApplyAttackDamage = (attackerActor, attackerPiece, defenderActor, defenderPiece) => {
             if (!attackerActor?.isAttacking) return false;
             if (attackerActor.didDamageThisAttack) return false;
             if (!defenderActor) return false;
@@ -1578,6 +1915,8 @@ class ArchonGame {
             const stats = this.getUnitStats(attackerPiece?.type, attackerPiece?.id);
             if (!stats) return false;
             const damage = stats.attackDamage;
+
+            if (this.isActorInvulnerable(defenderActor, defenderPiece)) return false;
 
             defenderActor.currentHP = (defenderActor.currentHP ?? 0) - damage;
             attackerActor.didDamageThisAttack = true;
@@ -1600,23 +1939,28 @@ class ArchonGame {
             const targetActor = p.ownerSide === 'light' ? darkActor : lightActor;
             if (!targetActor) continue;
 
+            const targetPiece = p.ownerSide === 'light' ? darkPiece : lightPiece;
+
             const dx = p.x - targetActor.x;
             const dy = p.y - targetActor.y;
             const dist = Math.hypot(dx, dy);
             if (dist > projectileHitRadius) continue;
 
-            targetActor.currentHP = (targetActor.currentHP ?? 0) - (p.damage ?? 0);
+            if (!this.isActorInvulnerable(targetActor, targetPiece)) {
+                targetActor.currentHP = (targetActor.currentHP ?? 0) - (p.damage ?? 0);
+            }
             this.combat.projectiles.splice(i, 1);
         }
 
         {
-            const applyAuraDps = (actor, actorPiece, opponentActor) => {
+            const applyAuraDps = (actor, actorPiece, opponentActor, opponentPiece) => {
                 if (!actor?.isAttacking) return;
                 const effectiveType = this.getEffectiveCombatTypeForPiece(actorPiece);
                 if (effectiveType === 'Phoenix') return;
                 const prog = actor.auraProgress ?? 0;
                 if (prog <= 0.25) return;
                 if (!opponentActor) return;
+                if (this.isActorInvulnerable(opponentActor, opponentPiece)) return;
 
                 const rx = ((spriteSize * 3.5) / 2) * prog;
                 const ry = ((spriteSize * 1.75) / 2) * prog;
@@ -1632,17 +1976,18 @@ class ArchonGame {
                 opponentActor.currentHP = (opponentActor.currentHP ?? 0) - (DPS * deltaTime);
             };
 
-            if (lightCombatType === 'AURA') applyAuraDps(lightActor, lightPiece, darkActor);
-            if (darkCombatType === 'AURA') applyAuraDps(darkActor, darkPiece, lightActor);
+            if (lightCombatType === 'AURA') applyAuraDps(lightActor, lightPiece, darkActor, darkPiece);
+            if (darkCombatType === 'AURA') applyAuraDps(darkActor, darkPiece, lightActor, lightPiece);
         }
 
         {
-            const applyPhoenixExplosionDps = (actor, actorPiece, opponentActor) => {
+            const applyPhoenixExplosionDps = (actor, actorPiece, opponentActor, opponentPiece) => {
                 const effectiveType = this.getEffectiveCombatTypeForPiece(actorPiece);
                 if (effectiveType !== 'Phoenix') return;
                 if (!actor) return;
                 if ((actor.auraState ?? 'idle') === 'idle') return;
                 if (!opponentActor) return;
+                if (this.isActorInvulnerable(opponentActor, opponentPiece)) return;
 
                 const intScale = Math.max(1, Math.floor(spriteSize / 64));
                 const radius = (237 / 2) * intScale * 0.9;
@@ -1656,13 +2001,13 @@ class ArchonGame {
                 opponentActor.currentHP = (opponentActor.currentHP ?? 0) - (DPS * deltaTime);
             };
 
-            applyPhoenixExplosionDps(lightActor, lightPiece, darkActor);
-            applyPhoenixExplosionDps(darkActor, darkPiece, lightActor);
+            applyPhoenixExplosionDps(lightActor, lightPiece, darkActor, darkPiece);
+            applyPhoenixExplosionDps(darkActor, darkPiece, lightActor, lightPiece);
         }
 
         if (lightActor && darkActor) {
             if (lightCombatType === 'MELEE') {
-                const darkKilled = tryApplyAttackDamage(lightActor, lightPiece, darkActor);
+                const darkKilled = tryApplyAttackDamage(lightActor, lightPiece, darkActor, darkPiece);
                 if (darkKilled) {
                     this.resolveCombat({ winnerId: this.combat.lightPieceId, loserId: this.combat.darkPieceId });
                     return;
@@ -1670,7 +2015,7 @@ class ArchonGame {
             }
 
             if (darkCombatType === 'MELEE') {
-                const lightKilled = tryApplyAttackDamage(darkActor, darkPiece, lightActor);
+                const lightKilled = tryApplyAttackDamage(darkActor, darkPiece, lightActor, lightPiece);
                 if (lightKilled) {
                     this.resolveCombat({ winnerId: this.combat.darkPieceId, loserId: this.combat.lightPieceId });
                     return;
@@ -1711,7 +2056,11 @@ class ArchonGame {
         this.ctx.fillStyle = '#000';
         this.ctx.fillRect(0, 0, this.width, this.height);
 
-        if (this.gameState === 'COMBAT') {
+        if (this.gameState === 'SPLASH') {
+            this.renderSplash();
+        } else if (this.gameState === 'CONFIG') {
+            this.renderConfig();
+        } else if (this.gameState === 'COMBAT') {
             this.renderCombat();
         } else {
             // Draw a simple test pattern to verify rendering works
@@ -2301,6 +2650,13 @@ class ArchonGame {
             darkOriginalType = 'Shape Shifter';
             darkCopiedType = opponentType;
         }
+
+        this.combat = {
+            lightPieceId,
+            darkPieceId,
+            lightCopiedType,
+            darkCopiedType
+        };
 
         const lightHP = this.calculateEffectiveMaxHP(lightPiece);
         const darkHP = this.calculateEffectiveMaxHP(darkPiece);
@@ -2935,7 +3291,7 @@ class ArchonGame {
     createInitialBoardColorCodesLightFirst() {
         return [
             ['F', 'A', 'F', 'D', 'D', 'D', 'A', 'F', 'A'],
-            ['A', 'F', 'D', 'A', 'D', 'D', 'D', 'A', 'F'],
+            ['A', 'F', 'D', 'A', 'D', 'F', 'D', 'A', 'F'],
             ['F', 'D', 'A', 'F', 'D', 'A', 'F', 'D', 'A'],
             ['D', 'A', 'F', 'A', 'D', 'F', 'A', 'F', 'D'],
             ['A', 'D', 'D', 'D', 'D', 'D', 'D', 'D', 'F'],
@@ -2944,6 +3300,100 @@ class ArchonGame {
             ['A', 'F', 'D', 'A', 'D', 'F', 'D', 'A', 'F'],
             ['F', 'A', 'F', 'D', 'D', 'D', 'A', 'F', 'A']
         ];
+    }
+
+    createInitialBoardColorCodesDarkFirst() {
+        return [
+            ['F', 'A', 'F', 'C', 'C', 'C', 'A', 'F', 'A'],
+            ['A', 'F', 'C', 'A', 'C', 'F', 'C', 'A', 'F'],
+            ['F', 'C', 'A', 'F', 'C', 'A', 'F', 'C', 'A'],
+            ['C', 'A', 'F', 'A', 'C', 'F', 'A', 'F', 'C'],
+            ['A', 'C', 'C', 'C', 'C', 'C', 'C', 'C', 'F'],
+            ['C', 'A', 'F', 'A', 'C', 'F', 'A', 'C', 'C'],
+            ['F', 'C', 'A', 'F', 'C', 'A', 'F', 'C', 'A'],
+            ['A', 'F', 'C', 'A', 'C', 'F', 'C', 'A', 'F'],
+            ['F', 'A', 'F', 'C', 'C', 'C', 'A', 'F', 'A']
+        ];
+    }
+
+    createInitialBoardRotates() {
+        return [
+            [false, false, false, true,  true,  true,  false, false, false],
+            [false, false, true,  false, true,  false, true,  false, false],
+            [false, true,  false, false, true,  false, false, true,  false],
+            [true,  false, false, false, true,  false, false, false, true ],
+            [false, true,  true,  true,  true,  true,  true,  true,  false],
+            [true,  false, false, false, true,  false, false, true,  true ],
+            [false, true,  false, false, true,  false, false, true,  false],
+            [false, false, true,  false, true,  false, true,  false, false],
+            [false, false, false, true,  true,  true,  false, false, false]
+        ];
+    }
+
+    applyBoardConfigurationForOrder(order) {
+        this.boardRotates = this.createInitialBoardRotates();
+
+        if (order === 'DARK_FIRST') {
+            this.currentSide = 'dark';
+            this.boardFirstMover = 'dark';
+            this.boardColorDirection = -1;
+            this.boardColorCodes = this.createInitialBoardColorCodesDarkFirst();
+
+            if (this.boardColorCodes?.[3]) {
+                this.boardColorCodes[3][5] = 'F';
+                this.boardColorCodes[3][7] = 'F';
+            }
+            if (this.boardRotates?.[3]) {
+                this.boardRotates[3][5] = false;
+                this.boardRotates[3][7] = false;
+            }
+            return;
+        }
+
+        this.currentSide = 'light';
+        this.boardFirstMover = 'light';
+        this.boardColorDirection = +1;
+        this.boardColorCodes = this.createInitialBoardColorCodesLightFirst();
+
+        if (this.boardColorCodes?.[3]) {
+            this.boardColorCodes[3][5] = 'F';
+            this.boardColorCodes[3][7] = 'F';
+        }
+        if (this.boardRotates?.[3]) {
+            this.boardRotates[3][5] = false;
+            this.boardRotates[3][7] = false;
+        }
+    }
+
+    rotateBoardColors() {
+        if (!this.boardColorCodes || !this.boardRotates) return;
+
+        const toIndex = (code) => {
+            const c = String(code ?? 'A').toUpperCase();
+            const idx = c.charCodeAt(0) - 'A'.charCodeAt(0);
+            if (Number.isFinite(idx) && idx >= 0 && idx <= 5) return idx;
+            return 0;
+        };
+        const toCode = (idx) => String.fromCharCode('A'.charCodeAt(0) + idx);
+
+        let hitBoundary = false;
+
+        for (let row = 0; row < this.boardSize; row++) {
+            for (let col = 0; col < this.boardSize; col++) {
+                if (!this.boardRotates?.[row]?.[col]) continue;
+
+                const idx = toIndex(this.boardColorCodes?.[row]?.[col]);
+                const next = Math.max(0, Math.min(5, idx + (this.boardColorDirection ?? 1)));
+                this.boardColorCodes[row][col] = toCode(next);
+
+                if (this.boardColorDirection === +1 && next === 5) hitBoundary = true;
+                if (this.boardColorDirection === -1 && next === 0) hitBoundary = true;
+            }
+        }
+
+        if (hitBoundary) {
+            this.boardColorDirection = (this.boardColorDirection ?? 1) * -1;
+        }
     }
 
     createInitialPiecesLight() {
@@ -3600,6 +4050,39 @@ class ArchonGame {
     // --- Selection + movement (Strategy Screen)
 
     handleCanvasMouseDown(e) {
+        if (this.gameState === 'CONFIG') {
+            const pos = this.getCanvasCoordsFromMouseEvent(e);
+            if (!pos) return;
+
+            const mx = pos.x;
+            const my = pos.y;
+
+            for (let i = 0; i < (this.clickZones?.length ?? 0); i++) {
+                const z = this.clickZones[i];
+                if (mx < z.x || my < z.y || mx > (z.x + z.width) || my > (z.y + z.height)) continue;
+
+                if (z.type === 'accept') {
+                    this.acceptConfigAndEnterStrategy();
+                    return;
+                }
+
+                if (!this.configState) {
+                    this.configState = {
+                        playing: 'TWO_PLAYERS_BOTH_ON_KEYBOARD',
+                        sound: 'SOUND_ON',
+                        order: 'LIGHT_FIRST'
+                    };
+                }
+
+                if (z.type === 'playing') this.configState.playing = z.value;
+                if (z.type === 'sound') this.configState.sound = z.value;
+                if (z.type === 'order') this.configState.order = z.value;
+                return;
+            }
+
+            return;
+        }
+
         if (this.gameState !== 'STRATEGY') return;
         if (this.strategyInputLocked) return;
         const tile = this.getTileFromMouseEvent(e);
@@ -3941,7 +4424,14 @@ class ArchonGame {
 
     endTurn() {
         this.selectedPiece = null;
+        const prevSide = this.currentSide;
         this.currentSide = this.currentSide === 'light' ? 'dark' : 'light';
+
+        const firstMover = this.boardFirstMover ?? 'light';
+        const rotateAfterSide = firstMover === 'light' ? 'dark' : 'light';
+        if (prevSide === rotateAfterSide) {
+            this.rotateBoardColors();
+        }
     }
 
     // Returns an array of steps excluding start, including dest, or null.
