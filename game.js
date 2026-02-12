@@ -20,6 +20,19 @@
 // Archon Clone - Main Game File
 // Vanilla JavaScript ES6 + HTML5 Canvas
 
+// Turns on/off the pulsing of the Powerpoints on the screen
+//
+const ENABLE_POWER_POINT_SHIMMER = true;
+
+const HP_BONUS_BY_COLOR = {
+    A: { light: 7, dark: 0 },
+    B: { light: 6, dark: 1 },
+    C: { light: 4, dark: 3 },
+    D: { light: 3, dark: 4 },
+    E: { light: 1, dark: 6 },
+    F: { light: 0, dark: 7 }
+};
+
 // –– Sprite Asset Configuration ––
 //
 // All sprite image paths are defined here.
@@ -513,6 +526,20 @@ class ArchonGame {
         };
         this.handPointerImage.src = 'assets/splashconfig/Hand Pointer.png';
 
+        this.bluePowerPointImage = new Image();
+        this.bluePowerPointLoaded = false;
+        this.bluePowerPointImage.onload = () => {
+            this.bluePowerPointLoaded = true;
+        };
+        this.bluePowerPointImage.src = 'assets/graphics/blue powerpoint.png';
+
+        this.redPowerPointImage = new Image();
+        this.redPowerPointLoaded = false;
+        this.redPowerPointImage.onload = () => {
+            this.redPowerPointLoaded = true;
+        };
+        this.redPowerPointImage.src = 'assets/graphics/red powerpoint.png';
+
         this.mouseX = 0;
         this.mouseY = 0;
         this.clickZones = [];
@@ -557,6 +584,16 @@ class ArchonGame {
             E: '#333333',
             F: '#000000'
         };
+
+        this.powerPoints = [
+            { grid: 'E1', type: 'ROTATE' },
+            { grid: 'E5', type: 'ROTATE' },
+            { grid: 'E9', type: 'ROTATE' },
+            { grid: 'A5', type: 'STATIC_WIZARD' },
+            { grid: 'I5', type: 'STATIC_SORCERESS' }
+        ];
+
+        this.powerPointFlickerTime = 0;
 
         this.pieces = [
             ...this.createInitialPiecesLight(),
@@ -1134,31 +1171,17 @@ class ArchonGame {
 
     calculateEffectiveMaxHP(piece) {
         if (!piece) return null;
+        const stats = UNIT_STATS[piece.type];
+        return stats ? stats.baseHP : null;
+    }
 
-        const hpForType = (type) => {
-            if (!type) return null;
-            const stats = UNIT_STATS[type];
-            if (!stats) return null;
-            return (stats.baseHP ?? stats.maxHP) ?? null;
-        };
-
-        if (piece.type !== 'Shape Shifter') {
-            return hpForType(piece.type);
-        }
-
-        if (this.gameState === 'COMBAT' && this.combat) {
-            let copiedType = null;
-            if (piece.id === this.combat.lightPieceId && this.combat.lightCopiedType) {
-                copiedType = this.combat.lightCopiedType;
-            } else if (piece.id === this.combat.darkPieceId && this.combat.darkCopiedType) {
-                copiedType = this.combat.darkCopiedType;
-            }
-
-            const copiedHP = hpForType(copiedType);
-            if (copiedHP != null) return copiedHP;
-        }
-
-        return hpForType('Shape Shifter');
+    getSquareHPBonus(piece, squareColorCode) {
+        if (!piece || !squareColorCode) return 0;
+        const entry = HP_BONUS_BY_COLOR[String(squareColorCode).toUpperCase()];
+        if (!entry) return 0;
+        if (piece.side === 'light') return entry.light ?? 0;
+        if (piece.side === 'dark') return entry.dark ?? 0;
+        return 0;
     }
     
     init() {
@@ -1537,6 +1560,7 @@ class ArchonGame {
     }
 
     updateStrategy(deltaTime) {
+        this.powerPointFlickerTime += deltaTime;
         this.updateIllegalFlash(deltaTime);
         this.updatePieceMovement(deltaTime);
     }
@@ -2651,15 +2675,19 @@ class ArchonGame {
             darkCopiedType = opponentType;
         }
 
-        this.combat = {
-            lightPieceId,
-            darkPieceId,
-            lightCopiedType,
-            darkCopiedType
+        const combatSquareColor = this.boardColorCodes?.[capture.square.y]?.[capture.square.x] ?? 'D';
+
+        const getActorHPFromPiece = (piece) => {
+            const baseHP = UNIT_STATS[piece?.type]?.baseHP ?? 0;
+            const squareBonus = this.getSquareHPBonus(piece, combatSquareColor);
+            const effectiveHP = baseHP + squareBonus;
+            const persistentDamage = piece?.persistentDamage ?? 0;
+            const startingHP = Math.max(0, effectiveHP - persistentDamage);
+            return { maxHP: effectiveHP, currentHP: startingHP };
         };
 
-        const lightHP = this.calculateEffectiveMaxHP(lightPiece);
-        const darkHP = this.calculateEffectiveMaxHP(darkPiece);
+        const lightHP = getActorHPFromPiece(lightPiece);
+        const darkHP = getActorHPFromPiece(darkPiece);
 
         this.combat = {
             attackerId: capture.attackerId,
@@ -2675,8 +2703,8 @@ class ArchonGame {
             arena,
             spriteSize,
             projectiles: [],
-            lightActor: { x: leftX, y: midY, facing: 'E', side: 'light', maxHP: lightHP ?? 0, currentHP: lightHP ?? 0, walkAnimTime: 0, isMoving: false, isAttacking: false, attackTimeLeft: 0, didDamageThisAttack: false, attackCooldownLeft: 0, auraState: 'idle', auraTimer: 0, auraFrameIndex: 0 },
-            darkActor: { x: rightX, y: midY, facing: 'W', side: 'dark', maxHP: darkHP ?? 0, currentHP: darkHP ?? 0, walkAnimTime: 0, isMoving: false, isAttacking: false, attackTimeLeft: 0, didDamageThisAttack: false, attackCooldownLeft: 0, auraState: 'idle', auraTimer: 0, auraFrameIndex: 0 }
+            lightActor: { x: leftX, y: midY, facing: 'E', side: 'light', maxHP: lightHP.maxHP ?? 0, currentHP: lightHP.currentHP ?? 0, walkAnimTime: 0, isMoving: false, isAttacking: false, attackTimeLeft: 0, didDamageThisAttack: false, attackCooldownLeft: 0, auraState: 'idle', auraTimer: 0, auraFrameIndex: 0 },
+            darkActor: { x: rightX, y: midY, facing: 'W', side: 'dark', maxHP: darkHP.maxHP ?? 0, currentHP: darkHP.currentHP ?? 0, walkAnimTime: 0, isMoving: false, isAttacking: false, attackTimeLeft: 0, didDamageThisAttack: false, attackCooldownLeft: 0, auraState: 'idle', auraTimer: 0, auraFrameIndex: 0 }
         };
     }
 
@@ -3164,16 +3192,55 @@ class ArchonGame {
 
         const { x, y } = this.combat.square;
 
+        const getMaxHPForPiece = (piece) => {
+            if (!piece) return 0;
+            const pieceMax = piece.maxHP;
+            if (typeof pieceMax === 'number' && Number.isFinite(pieceMax)) return pieceMax;
+            const fallback = UNIT_STATS[piece.type]?.maxHP;
+            return typeof fallback === 'number' && Number.isFinite(fallback) ? fallback : 0;
+        };
+
+        const setPieceDead = (piece) => {
+            if (!piece) return;
+            piece.currentHP = 0;
+        };
+
+        const setPieceCurrentFromActor = (piece, actor) => {
+            if (!piece) return;
+            const maxHP = getMaxHPForPiece(piece);
+            const curRaw = (typeof actor?.currentHP === 'number' && Number.isFinite(actor.currentHP)) ? actor.currentHP : maxHP;
+            piece.currentHP = Math.max(0, Math.min(maxHP, curRaw));
+        };
+
         if (result.mutualDestruction) {
+            const attacker = this.getPieceById(this.combat.attackerId);
+            const defender = this.getPieceById(this.combat.defenderId);
+            setPieceDead(attacker);
+            setPieceDead(defender);
             this.removePieceById(this.combat.attackerId);
             this.removePieceById(this.combat.defenderId);
         } else {
+            const loserPiece = this.getPieceById(result.loserId);
+            setPieceDead(loserPiece);
             this.removePieceById(result.loserId);
 
             const winner = this.getPieceById(result.winnerId);
             if (winner) {
+                const winnerActor = (result.winnerId === this.combat.lightPieceId)
+                    ? this.combat.lightActor
+                    : (result.winnerId === this.combat.darkPieceId)
+                        ? this.combat.darkActor
+                        : (winner.side === 'light' ? this.combat.lightActor : this.combat.darkActor);
+
+                setPieceCurrentFromActor(winner, winnerActor);
+
                 if (winner.type === 'Shape Shifter') {
-                    winner.currentHP = UNIT_STATS['Shape Shifter'].maxHP;
+                    winner.currentHP = getMaxHPForPiece(winner);
+                    winner.persistentDamage = 0;
+                } else {
+                    const actorMax = winnerActor?.maxHP ?? 0;
+                    const actorCur = winnerActor?.currentHP ?? 0;
+                    winner.persistentDamage = Math.max(0, actorMax - actorCur);
                 }
 
                 winner.col = x;
@@ -3235,6 +3302,11 @@ class ArchonGame {
         const colChar = String.fromCharCode('A'.charCodeAt(0) + x);
         return `${colChar}${y + 1}`;
     }
+
+    gridToXY(pos) {
+        const rc = this.gridPosToRowCol(pos);
+        return { x: rc.col, y: rc.row };
+    }
     
     drawTestPattern() {
         // Draw a simple checkerboard pattern to verify canvas is working
@@ -3277,6 +3349,8 @@ class ArchonGame {
         this.drawSelection(offsetX, offsetY, tileSize);
         this.drawIllegalFlash(offsetX, offsetY, tileSize);
 
+        this.drawPowerPoints();
+
         this.drawPieces(offsetX, offsetY, tileSize);
 
         // Draw center text
@@ -3286,6 +3360,67 @@ class ArchonGame {
         this.ctx.fillText('STRATEGY SCREEN (GRID ONLY)', this.width / 2, offsetY - 14);
 
         this.drawTurnIndicator(offsetX, offsetY);
+    }
+
+    drawPowerPoints() {
+        if (!Array.isArray(this.powerPoints) || this.powerPoints.length === 0) return;
+
+        const layout = this.boardLayout ?? this.computeBoardLayout();
+        const originX = layout.originX ?? layout.offsetX ?? 0;
+        const originY = layout.originY ?? layout.offsetY ?? 0;
+        const squareSize = layout.squareSize ?? layout.tileSize ?? 0;
+        if (squareSize <= 0) return;
+
+        const prevSmoothing = this.ctx.imageSmoothingEnabled;
+        this.ctx.imageSmoothingEnabled = false;
+
+        const size = Math.floor(squareSize * 0.5);
+        const flicker = 0.75 + Math.sin(this.powerPointFlickerTime * 8) * 0.25;
+        const shimmerRadius = squareSize * 0.2;
+
+        for (const pp of this.powerPoints) {
+            const { x, y } = this.gridToXY(pp.grid);
+            if (!this.isInBounds(x, y)) continue;
+
+            const squareLetter = this.boardColorCodes?.[y]?.[x] ?? 'D';
+
+            let color = 'blue';
+            if (pp.type === 'STATIC_WIZARD') {
+                color = 'red';
+            } else if (pp.type === 'STATIC_SORCERESS') {
+                color = 'blue';
+            } else {
+                const c = String(squareLetter ?? 'A').toUpperCase();
+                color = (c === 'A' || c === 'B' || c === 'C') ? 'blue' : 'red';
+            }
+
+            console.log('POWER_POINT', pp.grid, x, y, squareLetter, color);
+
+            const img = color === 'red' ? this.redPowerPointImage : this.bluePowerPointImage;
+            const loaded = color === 'red' ? this.redPowerPointLoaded : this.bluePowerPointLoaded;
+            if (!loaded || !img) continue;
+
+            const centerX = originX + x * squareSize + squareSize / 2;
+            const centerY = originY + y * squareSize + squareSize / 2;
+
+            const dx = Math.floor(centerX - size / 2);
+            const dy = Math.floor(centerY - size / 2);
+
+            this.ctx.save();
+            this.ctx.globalAlpha = flicker;
+            this.ctx.drawImage(img, dx, dy, size, size);
+
+            if (ENABLE_POWER_POINT_SHIMMER) {
+                this.ctx.globalAlpha = 0.15 * flicker;
+                this.ctx.fillStyle = '#ffffff';
+                this.ctx.beginPath();
+                this.ctx.arc(centerX, centerY, shimmerRadius, 0, Math.PI * 2);
+                this.ctx.fill();
+            }
+            this.ctx.restore();
+        }
+
+        this.ctx.imageSmoothingEnabled = prevSmoothing;
     }
 
     createInitialBoardColorCodesLightFirst() {
@@ -3397,29 +3532,51 @@ class ArchonGame {
     }
 
     createInitialPiecesLight() {
-        return INITIAL_LIGHT_SETUP.map((p, index) => ({
-            id: `p${index}`,
-            facing: 'E',
-            state: 'IDLE',
-            remainingMove: 0,
-            walkAnimTime: 0,
-            side: 'light',
-            ...p,
-            ...this.gridPosToRowCol(p.pos)
-        }));
+        return INITIAL_LIGHT_SETUP.map((p, index) => {
+            const stats = UNIT_STATS[p.type] ?? {};
+            const baseHP = typeof stats.baseHP === 'number' ? stats.baseHP : 0;
+            const maxHP = typeof stats.maxHP === 'number' ? stats.maxHP : baseHP;
+
+            return {
+                id: `p${index}`,
+                facing: 'E',
+                state: 'IDLE',
+                remainingMove: 0,
+                walkAnimTime: 0,
+                injury: 0,
+                persistentDamage: 0,
+                side: 'light',
+                ...p,
+                baseHP,
+                maxHP,
+                currentHP: maxHP,
+                ...this.gridPosToRowCol(p.pos)
+            };
+        });
     }
 
     createInitialPiecesDark() {
-        return INITIAL_DARK_SETUP.map((p, index) => ({
-            id: `d${index}`,
-            facing: 'W',
-            state: 'IDLE',
-            remainingMove: 0,
-            walkAnimTime: 0,
-            side: 'dark',
-            ...p,
-            ...this.gridPosToRowCol(p.pos)
-        }));
+        return INITIAL_DARK_SETUP.map((p, index) => {
+            const stats = UNIT_STATS[p.type] ?? {};
+            const baseHP = typeof stats.baseHP === 'number' ? stats.baseHP : 0;
+            const maxHP = typeof stats.maxHP === 'number' ? stats.maxHP : baseHP;
+
+            return {
+                id: `d${index}`,
+                facing: 'W',
+                state: 'IDLE',
+                remainingMove: 0,
+                walkAnimTime: 0,
+                injury: 0,
+                persistentDamage: 0,
+                side: 'dark',
+                ...p,
+                baseHP,
+                maxHP,
+                currentHP: maxHP,
+                ...this.gridPosToRowCol(p.pos)
+            };
+        });
     }
 
     gridPosToRowCol(pos) {
@@ -4043,7 +4200,15 @@ class ArchonGame {
         const offsetX = Math.floor((this.width - boardPixelSize) / 2);
         const offsetY = Math.floor((this.height - boardPixelSize) / 2);
 
-        this.boardLayout = { tileSize, boardPixelSize, offsetX, offsetY };
+        this.boardLayout = {
+            tileSize,
+            boardPixelSize,
+            offsetX,
+            offsetY,
+            originX: offsetX,
+            originY: offsetY,
+            squareSize: tileSize
+        };
         return this.boardLayout;
     }
 
