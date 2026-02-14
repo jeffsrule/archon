@@ -603,8 +603,8 @@ class ArchonGame {
         this.configPointerY = 300;
 
         this.touchState = {
-            light: { active: false, id: null, startX: 0, startY: 0, dx: 0, dy: 0, snappedDx: 0, snappedDy: 0, startTime: 0 },
-            dark: { active: false, id: null, startX: 0, startY: 0, dx: 0, dy: 0, snappedDx: 0, snappedDy: 0, startTime: 0 }
+            light: { active: false, id: null, startX: 0, startY: 0, dx: 0, dy: 0, snappedDx: 0, snappedDy: 0, startTime: 0, fireId: null, fireTime: 0 },
+            dark: { active: false, id: null, startX: 0, startY: 0, dx: 0, dy: 0, snappedDx: 0, snappedDy: 0, startTime: 0, fireId: null, fireTime: 0 }
         };
         
         // Input state
@@ -1366,6 +1366,12 @@ class ArchonGame {
             return null;
         };
 
+        const findFireSideByTouchId = (id) => {
+            if (this.touchState.light.fireId === id) return 'light';
+            if (this.touchState.dark.fireId === id) return 'dark';
+            return null;
+        };
+
         const snapTo8Dir = (dx, dy) => {
             const angle = Math.atan2(dy, dx);
             const sector = Math.round(angle / (Math.PI / 4));
@@ -1389,7 +1395,13 @@ class ArchonGame {
                 const pos = getTouchCanvasPos(touch);
                 const side = getSideForTouch(pos.x);
                 const ts = this.touchState[side];
-                if (ts.active) continue;
+                if (ts.active) {
+                    if (ts.fireId === null) {
+                        ts.fireId = touch.identifier;
+                        ts.fireTime = performance.now();
+                    }
+                    continue;
+                }
                 ts.active = true;
                 ts.id = touch.identifier;
                 ts.startX = pos.x;
@@ -1425,6 +1437,16 @@ class ArchonGame {
             if (this.gameState !== 'COMBAT') return;
             e.preventDefault();
             for (const touch of e.changedTouches) {
+                const fireSide = findFireSideByTouchId(touch.identifier);
+                if (fireSide) {
+                    const fts = this.touchState[fireSide];
+                    this.combatTouchFire = this.combatTouchFire ?? {};
+                    this.combatTouchFire[fireSide] = true;
+                    fts.fireId = null;
+                    fts.fireTime = 0;
+                    continue;
+                }
+
                 const side = findSideByTouchId(touch.identifier);
                 if (!side) continue;
                 const ts = this.touchState[side];
