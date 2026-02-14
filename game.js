@@ -596,6 +596,7 @@ class ArchonGame {
             moveCooldown: 0
         };
         this.gamepadAPressed = false;
+        this.combatGamepadAPressed = false;
         
         // Input state
         this.keys = {};
@@ -1581,6 +1582,13 @@ class ArchonGame {
         this.canvas.style.cursor = 'default';
     }
 
+    doesSideUseGamepad(side) {
+        const opt = this.gameConfig?.playing ?? 'TWO_PLAYERS_BOTH_ON_KEYBOARD';
+        if (opt === 'TWO_PLAYERS_DARK_ON_KEYBOARD') return side === 'light';
+        if (opt === 'TWO_PLAYERS_LIGHT_ON_KEYBOARD') return side === 'dark';
+        return false;
+    }
+
     acceptConfigAndEnterStrategy() {
         if (this.gameState !== 'CONFIG') return;
         this.gameConfig = { ...this.configState };
@@ -1733,6 +1741,19 @@ class ArchonGame {
         const half = spriteSize / 2;
 
         this.combat.auraTime = (this.combat.auraTime ?? 0) + deltaTime;
+
+        const cgpads = navigator.getGamepads ? navigator.getGamepads() : [];
+        const cgp = cgpads[0] ?? cgpads[1] ?? cgpads[2] ?? cgpads[3];
+        let gpStickX = 0;
+        let gpStickY = 0;
+        let gpADown = false;
+        if (cgp) {
+            const rawX = cgp.axes[0] ?? 0;
+            const rawY = cgp.axes[1] ?? 0;
+            gpStickX = Math.abs(rawX) >= 0.25 ? rawX : 0;
+            gpStickY = Math.abs(rawY) >= 0.25 ? rawY : 0;
+            gpADown = cgp.buttons[0]?.pressed ?? false;
+        }
 
         this.combat.obstacleTimer = (this.combat.obstacleTimer ?? 0) + deltaTime;
         if (this.combat.obstacleTimer >= (this.combat.obstacleInterval ?? 6.0)) {
@@ -1987,6 +2008,38 @@ class ArchonGame {
             }
         }
 
+        if (gpADown && !this.combatGamepadAPressed) {
+            if (this.doesSideUseGamepad('light')) {
+                if (lightCombatType === 'PROJECTILE') {
+                    trySpawnProjectile(lightActor, 'light');
+                } else if (lightCombatType === 'AURA') {
+                    const lightEffectiveType = this.getEffectiveCombatTypeForPiece(lightPiece);
+                    if (lightEffectiveType === 'Phoenix') {
+                        startPhoenixExplosion(lightActor);
+                    } else {
+                        startAuraAttack(lightActor);
+                    }
+                } else {
+                    startAttack(lightActor, lightPiece);
+                }
+            }
+            if (this.doesSideUseGamepad('dark')) {
+                if (darkCombatType === 'PROJECTILE') {
+                    trySpawnProjectile(darkActor, 'dark');
+                } else if (darkCombatType === 'AURA') {
+                    const darkEffectiveType = this.getEffectiveCombatTypeForPiece(darkPiece);
+                    if (darkEffectiveType === 'Phoenix') {
+                        startPhoenixExplosion(darkActor);
+                    } else {
+                        startAuraAttack(darkActor);
+                    }
+                } else {
+                    startAttack(darkActor, darkPiece);
+                }
+            }
+        }
+        this.combatGamepadAPressed = gpADown;
+
         if (lightCombatType === 'AURA') {
             const lightEffectiveType = this.getEffectiveCombatTypeForPiece(lightPiece);
             if (lightEffectiveType === 'Phoenix') updatePhoenixExplosion(lightActor);
@@ -2100,6 +2153,10 @@ class ArchonGame {
                 if (this.keys['KeyD']) dx += 1;
                 if (this.keys['KeyW']) dy -= 1;
                 if (this.keys['KeyS']) dy += 1;
+                if (this.doesSideUseGamepad('light')) {
+                    dx += gpStickX;
+                    dy += gpStickY;
+                }
             }
             moveActor(l, lightPiece, dx, dy);
         }
@@ -2113,6 +2170,10 @@ class ArchonGame {
                 if (this.keys['ArrowRight']) dx += 1;
                 if (this.keys['ArrowUp']) dy -= 1;
                 if (this.keys['ArrowDown']) dy += 1;
+                if (this.doesSideUseGamepad('dark')) {
+                    dx += gpStickX;
+                    dy += gpStickY;
+                }
             }
             moveActor(d, darkPiece, dx, dy);
         }
