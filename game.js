@@ -429,7 +429,7 @@ const UNIT_STATS = {
     Valkyrie: {
         combatType: 'PROJECTILE',
         baseHP: 7.5,
-        maxHP: 10,
+        maxHP: 14.5,
         moveType: 'FLY',
         moveRange: 3,
         speed: 220,
@@ -540,6 +540,16 @@ class ArchonGame {
         };
         this.redPowerPointImage.src = 'assets/graphics/red powerpoint.png';
 
+        this.bushImage = new Image();
+        this.bushLoaded = false;
+        this.bushImage.onload = () => { this.bushLoaded = true; };
+        this.bushImage.src = 'assets/bush.png';
+
+        this.bushFadeImage = new Image();
+        this.bushFadeLoaded = false;
+        this.bushFadeImage.onload = () => { this.bushFadeLoaded = true; };
+        this.bushFadeImage.src = 'assets/bush_fade.png';
+
         this.mouseX = 0;
         this.mouseY = 0;
         this.clickZones = [];
@@ -565,6 +575,27 @@ class ArchonGame {
         this.gameState = 'SPLASH';
         this.strategyInputLocked = false;
         this.combat = null;
+        this.showHPDebugOverlay = false;
+
+        this.worldShiftMessage = null;
+        this.worldShiftTimer = 0;
+        this.worldShiftDuration = 4.0;
+        this.worldShiftFadeDuration = 0.6;
+
+        this.squareFadeDuration = 1.0;
+        this.squareFadeTime = 0;
+        this.squareFadeActive = false;
+        this.squareFadeFrom = null;
+        this.squareFadeTo = null;
+
+        this.turnCounter = 0;
+
+        this.boardCursor = {
+            x: 4,
+            y: 4,
+            moveCooldown: 0
+        };
+        this.gamepadAPressed = false;
         
         // Input state
         this.keys = {};
@@ -1183,7 +1214,60 @@ class ArchonGame {
         if (piece.side === 'dark') return entry.dark ?? 0;
         return 0;
     }
-    
+
+    getPowerPointColorAt(gridPos) {
+        if (gridPos === 'A5') return 'red';
+        if (gridPos === 'I5') return 'blue';
+        const rotateGrids = ['E1', 'E5', 'E9'];
+        if (rotateGrids.includes(gridPos)) {
+            const xy = this.gridToXY(gridPos);
+            const code = (this.boardColorCodes?.[xy.y]?.[xy.x] ?? 'D').toUpperCase();
+            if ('ABC'.includes(code)) return 'blue';
+            return 'red';
+        }
+        return null;
+    }
+
+    applyPowerPointHP(piece) {
+        if (!piece) return;
+
+        const gridPos = this.xyToGridPos(piece.col, piece.row);
+        const ppColor = this.getPowerPointColorAt(gridPos);
+        if (!ppColor) return;
+        console.log('[PowerPoint] landed on PP:', piece.type, piece.side, gridPos, 'ppColor:', ppColor, 'persistentDmg:', piece.persistentDamage ?? 0);
+
+        if (piece.lastPowerPointTriggerTurn === this.turnCounter) return;
+
+        const stats = UNIT_STATS[piece.type];
+        if (!stats) return;
+        const maxHP = stats.maxHP ?? stats.baseHP ?? 0;
+        const prevDamage = piece.persistentDamage ?? 0;
+
+        let delta = 0;
+        if (ppColor === 'red') {
+            delta = piece.side === 'light' ? +1 : -1;
+        } else if (ppColor === 'blue') {
+            delta = piece.side === 'dark' ? +1 : -1;
+        }
+        if (delta === 0) return;
+
+        if (delta > 0) {
+            piece.persistentDamage = prevDamage - 1;
+        } else {
+            piece.persistentDamage = prevDamage + 1;
+        }
+
+        if (piece.persistentDamage > maxHP) {
+            piece.persistentDamage = maxHP;
+        }
+
+        piece.lastPowerPointTriggerTurn = this.turnCounter;
+
+        console.log('[PowerPoint]', piece.type, piece.side, gridPos, ppColor,
+            'persistentDmg:', prevDamage, '→', piece.persistentDamage,
+            'delta:', delta > 0 ? '+1' : '-1');
+    }
+
     init() {
         // Set up event listeners
         this.setupEventListeners();
@@ -1563,6 +1647,82 @@ class ArchonGame {
         this.powerPointFlickerTime += deltaTime;
         this.updateIllegalFlash(deltaTime);
         this.updatePieceMovement(deltaTime);
+
+        if (this.worldShiftMessage !== null) {
+            this.worldShiftTimer += deltaTime;
+            if (this.worldShiftTimer >= this.worldShiftDuration) {
+                this.worldShiftMessage = null;
+            }
+        }
+
+        if (this.squareFadeActive) {
+            this.squareFadeTime += deltaTime;
+            if (this.squareFadeTime >= this.squareFadeDuration) {
+                this.squareFadeActive = false;
+            }
+        }
+
+        const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+        const gp = gamepads[0] ?? gamepads[1] ?? gamepads[2] ?? gamepads[3];
+        if (gp) {
+            this.boardCursor.moveCooldown = Math.max(0, (this.boardCursor.moveCooldown ?? 0) - deltaTime);
+
+            if (this.boardCursor.moveCooldown <= 0) {
+                const ax0 = gp.axes[0] ?? 0;
+                const ax1 = gp.axes[1] ?? 0;
+                let moved = false;
+
+                if (ax0 < -0.5) { this.boardCursor.x = Math.max(0, this.boardCursor.x - 1); moved = true; }
+                else if (ax0 > 0.5) { this.boardCursor.x = Math.min(this.boardSize - 1, this.boardCursor.x + 1); moved = true; }
+
+                if (ax1 < -0.5) { this.boardCursor.y = Math.max(0, this.boardCursor.y - 1); moved = true; }
+                else if (ax1 > 0.5) { this.boardCursor.y = Math.min(this.boardSize - 1, this.boardCursor.y + 1); moved = true; }
+
+                if (moved) this.boardCursor.moveCooldown = 0.18;
+            }
+
+            const aDown = gp.buttons[0]?.pressed ?? false;
+            if (aDown && !this.gamepadAPressed && !this.strategyInputLocked) {
+                const x = this.boardCursor.x;
+                const y = this.boardCursor.y;
+                const stack = this.board[x][y];
+
+                if (!this.selectedPiece) {
+                    const friendly = stack.find(p => p.side === this.currentSide);
+                    if (friendly) {
+                        const friendlyMovable = stack.find(p => {
+                            if (p.side !== this.currentSide) return false;
+                            const s = this.getUnitStats(p.type);
+                            return s?.moveType && (s.moveRange ?? 0) > 0;
+                        });
+                        this.selectedPiece = friendlyMovable ?? friendly;
+                    }
+                } else {
+                    if (this.selectedPiece.state === 'IDLE' && this.selectedPiece.side === this.currentSide) {
+                        const result = this.tryStartMove(this.selectedPiece, x, y);
+                        if (result) {
+                            if (result.type === 'capture') {
+                                this.lastCaptureAttempt = result;
+                                this.strategyInputLocked = true;
+                            }
+                        } else {
+                            const friendly = stack.find(p => p.side === this.currentSide);
+                            if (friendly) {
+                                const friendlyMovable = stack.find(p => {
+                                    if (p.side !== this.currentSide) return false;
+                                    const s = this.getUnitStats(p.type);
+                                    return s?.moveType && (s.moveRange ?? 0) > 0;
+                                });
+                                this.selectedPiece = friendlyMovable ?? friendly;
+                            } else {
+                                this.flashIllegal(x, y);
+                            }
+                        }
+                    }
+                }
+            }
+            this.gamepadAPressed = aDown;
+        }
     }
 
     updateCombat(deltaTime) {
@@ -1573,6 +1733,12 @@ class ArchonGame {
         const half = spriteSize / 2;
 
         this.combat.auraTime = (this.combat.auraTime ?? 0) + deltaTime;
+
+        this.combat.obstacleTimer = (this.combat.obstacleTimer ?? 0) + deltaTime;
+        if (this.combat.obstacleTimer >= (this.combat.obstacleInterval ?? 6.0)) {
+            this.combat.obstacleTimer = 0;
+            this.generateCombatObstacles();
+        }
 
         const lightActor = this.combat.lightActor;
         const darkActor = this.combat.darkActor;
@@ -1845,6 +2011,20 @@ class ArchonGame {
             return !canMoveWhileAttacking;
         };
 
+        const obstacleRect = (obs) => {
+            const hw = obs.width / 2;
+            const hh = obs.height / 2;
+            return { x: obs.x - hw, y: obs.y - hh, w: obs.width, h: obs.height };
+        };
+
+        const actorOverlapsObstacle = (ax, ay, obs) => {
+            const s = Math.floor(spriteSize * 0.7);
+            const hs = s / 2;
+            const ar = { x: ax - hs, y: ay - hs, w: s, h: s };
+            const or = obstacleRect(obs);
+            return ar.x < or.x + or.w && ar.x + ar.w > or.x && ar.y < or.y + or.h && ar.y + ar.h > or.y;
+        };
+
         const moveActor = (actor, piece, dx, dy) => {
             if (!actor) return;
             if (dx === 0 && dy === 0) {
@@ -1860,9 +2040,53 @@ class ArchonGame {
             const ndx = dx / len;
             const ndy = dy / len;
             const stats = this.getUnitStats(piece?.type, piece?.id);
-            const speed = stats?.speed ?? 200;
-            actor.x += ndx * speed * deltaTime;
-            actor.y += ndy * speed * deltaTime;
+            let speed = stats?.speed ?? 200;
+
+            const obstacles = this.combat.obstacles ?? [];
+            let inFadeBush = false;
+            for (const obs of obstacles) {
+                if (obs.type === 'fade' && actorOverlapsObstacle(actor.x, actor.y, obs)) {
+                    inFadeBush = true;
+                    break;
+                }
+            }
+            if (inFadeBush) speed *= 0.5;
+
+            const newX = actor.x + ndx * speed * deltaTime;
+            const newY = actor.y + ndy * speed * deltaTime;
+
+            let blocked = false;
+            for (const obs of obstacles) {
+                if (obs.type !== 'solid') continue;
+                if (!actorOverlapsObstacle(newX, newY, obs)) continue;
+
+                blocked = true;
+                const pushBack = 5;
+                let adjX = newX - ndx * pushBack;
+                let adjY = newY - ndy * pushBack;
+
+                const slideAmt = 5;
+                if (Math.abs(ndx) >= Math.abs(ndy)) {
+                    adjY += (ndy >= 0 ? slideAmt : -slideAmt);
+                } else {
+                    adjX += (ndx >= 0 ? slideAmt : -slideAmt);
+                }
+
+                if (!actorOverlapsObstacle(adjX, adjY, obs)) {
+                    actor.x = adjX;
+                    actor.y = adjY;
+                } else {
+                    actor.x = actor.x - ndx * pushBack;
+                    actor.y = actor.y - ndy * pushBack;
+                }
+                break;
+            }
+
+            if (!blocked) {
+                actor.x = newX;
+                actor.y = newY;
+            }
+
             actor.facing = this.directionFromDelta(ndx, ndy);
             clampToArena(actor);
         };
@@ -1956,6 +2180,20 @@ class ArchonGame {
 
             const pad = 20;
             if (p.x < arena.ax - pad || p.x > arena.ax + arena.arenaW + pad || p.y < arena.ay - pad || p.y > arena.ay + arena.arenaH + pad) {
+                this.combat.projectiles.splice(i, 1);
+                continue;
+            }
+
+            let hitSolidBush = false;
+            for (const obs of (this.combat.obstacles ?? [])) {
+                if (obs.type !== 'solid') continue;
+                const or = obstacleRect(obs);
+                if (p.x >= or.x && p.x <= or.x + or.w && p.y >= or.y && p.y <= or.y + or.h) {
+                    hitSolidBush = true;
+                    break;
+                }
+            }
+            if (hitSolidBush) {
                 this.combat.projectiles.splice(i, 1);
                 continue;
             }
@@ -2058,6 +2296,11 @@ class ArchonGame {
             }
         }
 
+        if (this.keys['KeyH']) {
+            this.keys['KeyH'] = false;
+            this.showHPDebugOverlay = !this.showHPDebugOverlay;
+        }
+
         if (this.keys['Digit1']) {
             this.keys['Digit1'] = false;
             this.resolveCombat({ winnerId: this.combat.lightPieceId, loserId: this.combat.darkPieceId });
@@ -2125,9 +2368,11 @@ class ArchonGame {
         this.ctx.font = '14px Courier New';
         this.ctx.fillText(`Square: ${squareLabel}`, this.width / 2, ay + 52);
 
-        this.ctx.font = '14px Courier New';
-        this.ctx.fillText('Press 1: Light wins   2: Dark wins   3: mutual destruction', this.width / 2, ay + arenaH - 34);
-        this.ctx.fillText('WASD: move Light (hold 2 keys for diagonals)   Arrows: move Dark (hold 2 keys for diagonals)', this.width / 2, ay + arenaH - 16);
+        this.ctx.font = '12px Courier New';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText('Press 1: Light wins   2: Dark wins   3: mutual destruction', this.width / 2, ay + arenaH - 56);
+        this.ctx.fillText('WASD: move Light (hold 2 keys for diagonals)', this.width / 2, ay + arenaH - 38);
+        this.ctx.fillText('Arrows: move Dark (hold 2 keys for diagonals)', this.width / 2, ay + arenaH - 22);
 
         const leftX = ax + Math.floor(arenaW * 0.25);
         const rightX = ax + Math.floor(arenaW * 0.75);
@@ -2135,6 +2380,20 @@ class ArchonGame {
 
         const combatLight = this.combat.lightActor ?? { x: leftX, y: midY, facing: lightPiece?.facing ?? 'E' };
         const combatDark = this.combat.darkActor ?? { x: rightX, y: midY, facing: darkPiece?.facing ?? 'W' };
+
+        if (this.combat.obstacles && this.combat.obstacles.length > 0) {
+            const prevSmoothing = this.ctx.imageSmoothingEnabled;
+            this.ctx.imageSmoothingEnabled = false;
+            for (const obs of this.combat.obstacles) {
+                const img = obs.type === 'solid' ? this.bushImage : this.bushFadeImage;
+                const loaded = obs.type === 'solid' ? this.bushLoaded : this.bushFadeLoaded;
+                if (!loaded || !img) continue;
+                const drawX = Math.floor(obs.x - obs.width / 2);
+                const drawY = Math.floor(obs.y - obs.height / 2);
+                this.ctx.drawImage(img, drawX, drawY, obs.width, obs.height);
+            }
+            this.ctx.imageSmoothingEnabled = prevSmoothing;
+        }
 
         const lightEffectiveType = this.getEffectiveCombatTypeForPiece(lightPiece);
         const darkEffectiveType = this.getEffectiveCombatTypeForPiece(darkPiece);
@@ -2280,8 +2539,104 @@ class ArchonGame {
             this.ctx.fillRect(x, fillY, barW, fillH);
         };
 
-        drawBar(pad, 'rgb(255, 180, 70)', lightActor);
-        drawBar(this.width - pad - barW, 'rgb(0, 43, 115)', darkActor);
+        const lightBarX = pad;
+        const darkBarX = this.width - pad - barW;
+
+        drawBar(lightBarX, 'rgb(255, 180, 70)', lightActor);
+        drawBar(darkBarX, 'rgb(0, 43, 115)', darkActor);
+
+        if (this.showHPDebugOverlay) {
+            const ctx = this.ctx;
+            const hpPerPixel = barH / GLOBAL_MAX_HP;
+
+            const drawScale = (barX, side) => {
+                const scaleColor = side === 'light' ? 'rgba(255, 200, 120, 0.6)' : 'rgba(100, 150, 220, 0.6)';
+                const thickColor = side === 'light' ? 'rgba(255, 200, 120, 0.9)' : 'rgba(100, 150, 220, 0.9)';
+                const textColor = side === 'light' ? 'rgba(255, 220, 160, 0.9)' : 'rgba(140, 180, 240, 0.9)';
+                const scaleX = side === 'light' ? barX + barW + 3 : barX - 3;
+
+                for (let hp = 0; hp <= GLOBAL_MAX_HP; hp++) {
+                    const y = Math.round(bottom - hp * hpPerPixel);
+                    const isMajor = hp % 5 === 0;
+                    const tickLen = isMajor ? 8 : 4;
+                    const tickW = isMajor ? 1.5 : 0.5;
+
+                    ctx.strokeStyle = isMajor ? thickColor : scaleColor;
+                    ctx.lineWidth = tickW;
+                    ctx.beginPath();
+                    if (side === 'light') {
+                        ctx.moveTo(scaleX, y);
+                        ctx.lineTo(scaleX + tickLen, y);
+                    } else {
+                        ctx.moveTo(scaleX, y);
+                        ctx.lineTo(scaleX - tickLen, y);
+                    }
+                    ctx.stroke();
+                }
+
+                ctx.font = '10px monospace';
+                ctx.fillStyle = textColor;
+                if (side === 'light') {
+                    ctx.textAlign = 'left';
+                    ctx.fillText('0', scaleX + 10, bottom - 2);
+                    ctx.fillText(GLOBAL_MAX_HP.toFixed(1), scaleX + 10, top + 10);
+                } else {
+                    ctx.textAlign = 'left';
+                    ctx.fillText('0', barX + barW + 4, bottom - 2);
+                    ctx.fillText(GLOBAL_MAX_HP.toFixed(1), barX + barW + 4, top + 10);
+                }
+            };
+
+            drawScale(lightBarX, 'light');
+            drawScale(darkBarX, 'dark');
+
+            const drawReadout = (barX, actor, side) => {
+                if (!actor) return;
+                const cur = (actor.currentHP ?? 0).toFixed(1);
+                const max = (actor.maxHP ?? 0).toFixed(1);
+                const label = `${cur} / ${max}`;
+
+                ctx.font = '11px monospace';
+                const textColor = side === 'light' ? 'rgba(255, 220, 160, 0.95)' : 'rgba(140, 180, 240, 0.95)';
+                ctx.fillStyle = textColor;
+
+                const actorMaxHP = Math.max(0, actor.maxHP ?? 0);
+                const totalHeight = Math.max(0, Math.min(barH, Math.floor(barH * (actorMaxHP / GLOBAL_MAX_HP))));
+                const barTopY = bottom - totalHeight;
+
+                if (side === 'light') {
+                    ctx.textAlign = 'left';
+                    ctx.fillText(label, lightBarX, barTopY - 6);
+                } else {
+                    ctx.textAlign = 'right';
+                    ctx.fillText(label, darkBarX + barW, barTopY - 6);
+                }
+            };
+
+            drawReadout(lightBarX, lightActor, 'light');
+            drawReadout(darkBarX, darkActor, 'dark');
+
+            const drawLiveHP = (actor, side) => {
+                if (!actor) return;
+                const cur = (actor.currentHP ?? 0).toFixed(1);
+                ctx.font = '14px monospace';
+                const textColor = side === 'light' ? 'rgba(255, 220, 160, 0.95)' : 'rgba(140, 180, 240, 0.95)';
+                ctx.fillStyle = textColor;
+                if (side === 'light') {
+                    ctx.textAlign = 'left';
+                    ctx.fillText(`HP: ${cur}`, 10, 20);
+                } else {
+                    ctx.textAlign = 'right';
+                    ctx.fillText(`HP: ${cur}`, this.width - 10, 20);
+                }
+            };
+
+            drawLiveHP(lightActor, 'light');
+            drawLiveHP(darkActor, 'dark');
+
+            ctx.textAlign = 'start';
+            ctx.textBaseline = 'alphabetic';
+        }
     }
 
     setCanvasSize(width, height, setStyleToPixels) {
@@ -2682,12 +3037,13 @@ class ArchonGame {
             const squareBonus = this.getSquareHPBonus(piece, combatSquareColor);
             const effectiveHP = baseHP + squareBonus;
             const persistentDamage = piece?.persistentDamage ?? 0;
-            const startingHP = Math.max(0, effectiveHP - persistentDamage);
-            return { maxHP: effectiveHP, currentHP: startingHP };
+            const startingHP = Math.max(0.5, effectiveHP - persistentDamage);
+            return { maxHP: Math.max(0.5, effectiveHP), currentHP: startingHP };
         };
 
         const lightHP = getActorHPFromPiece(lightPiece);
         const darkHP = getActorHPFromPiece(darkPiece);
+
 
         this.combat = {
             attackerId: capture.attackerId,
@@ -2703,9 +3059,60 @@ class ArchonGame {
             arena,
             spriteSize,
             projectiles: [],
+            obstacles: [],
+            obstacleTimer: 0,
+            obstacleInterval: 12.0,
             lightActor: { x: leftX, y: midY, facing: 'E', side: 'light', maxHP: lightHP.maxHP ?? 0, currentHP: lightHP.currentHP ?? 0, walkAnimTime: 0, isMoving: false, isAttacking: false, attackTimeLeft: 0, didDamageThisAttack: false, attackCooldownLeft: 0, auraState: 'idle', auraTimer: 0, auraFrameIndex: 0 },
             darkActor: { x: rightX, y: midY, facing: 'W', side: 'dark', maxHP: darkHP.maxHP ?? 0, currentHP: darkHP.currentHP ?? 0, walkAnimTime: 0, isMoving: false, isAttacking: false, attackTimeLeft: 0, didDamageThisAttack: false, attackCooldownLeft: 0, auraState: 'idle', auraTimer: 0, auraFrameIndex: 0 }
         };
+
+        this.generateCombatObstacles();
+    }
+
+    generateCombatObstacles() {
+        if (!this.combat) return;
+        this.combat.obstacles = [];
+
+        const arena = this.combat.arena ?? this.computeCombatArena();
+        const spriteSize = this.combat.spriteSize ?? this.getCombatSpriteSize(arena.arenaW, arena.arenaH);
+        const bushScale = 0.75;
+        const bushW = spriteSize * bushScale;
+        const bushH = spriteSize * bushScale;
+        const ax = arena.ax;
+        const ay = arena.ay;
+        const arenaW = arena.arenaW;
+        const arenaH = arena.arenaH;
+
+        const border = 64;
+        const usableW = arenaW - border * 2;
+        const usableH = arenaH - border * 2;
+        const cellW = usableW / 5;
+        const cellH = usableH / 5;
+
+        const spawnMargin = arenaW * 0.20;
+
+        for (let row = 0; row < 5; row++) {
+            for (let col = 0; col < 5; col++) {
+                const cx = ax + border + col * cellW + cellW / 2;
+                const cy = ay + border + row * cellH + cellH / 2;
+
+                if (cx - bushW / 2 < ax + spawnMargin) continue;
+                if (cx + bushW / 2 > ax + arenaW - spawnMargin) continue;
+
+                const roll = Math.random();
+                if (roll < 0.35) continue;
+
+                const type = roll < 0.70 ? 'fade' : 'solid';
+
+                this.combat.obstacles.push({
+                    x: cx,
+                    y: cy,
+                    width: bushW,
+                    height: bushH,
+                    type
+                });
+            }
+        }
     }
 
     drawPhoenixExplosion(actor, spriteSize) {
@@ -3313,13 +3720,30 @@ class ArchonGame {
         const boardSize = this.boardSize;
         const { tileSize, boardPixelSize, offsetX, offsetY } = this.computeBoardLayout();
 
+        const hexToRgb = (hex) => {
+            const h = hex.replace('#', '');
+            return [parseInt(h.substring(0, 2), 16), parseInt(h.substring(2, 4), 16), parseInt(h.substring(4, 6), 16)];
+        };
+        const fadeT = this.squareFadeActive ? Math.max(0, Math.min(1, this.squareFadeTime / this.squareFadeDuration)) : 1;
+
         for (let row = 0; row < boardSize; row++) {
             for (let col = 0; col < boardSize; col++) {
                 const x = offsetX + col * tileSize;
                 const y = offsetY + row * tileSize;
 
-                const colorCode = this.boardColorCodes?.[row]?.[col] ?? 'D';
-                this.ctx.fillStyle = this.squareHexColors[colorCode] ?? '#666666';
+                if (this.squareFadeActive && this.boardRotates?.[row]?.[col] && this.squareFadeFrom && this.squareFadeTo) {
+                    const fromCode = this.squareFadeFrom[row]?.[col] ?? 'D';
+                    const toCode = this.squareFadeTo[row]?.[col] ?? 'D';
+                    const fromRgb = hexToRgb(this.squareHexColors[fromCode] ?? '#666666');
+                    const toRgb = hexToRgb(this.squareHexColors[toCode] ?? '#666666');
+                    const r = Math.round(fromRgb[0] + (toRgb[0] - fromRgb[0]) * fadeT);
+                    const g = Math.round(fromRgb[1] + (toRgb[1] - fromRgb[1]) * fadeT);
+                    const b = Math.round(fromRgb[2] + (toRgb[2] - fromRgb[2]) * fadeT);
+                    this.ctx.fillStyle = `rgb(${r},${g},${b})`;
+                } else {
+                    const colorCode = this.boardColorCodes?.[row]?.[col] ?? 'D';
+                    this.ctx.fillStyle = this.squareHexColors[colorCode] ?? '#666666';
+                }
                 this.ctx.fillRect(x, y, tileSize, tileSize);
             }
         }
@@ -3347,11 +3771,37 @@ class ArchonGame {
         this.ctx.strokeRect(offsetX + 0.5, offsetY + 0.5, boardPixelSize, boardPixelSize);
 
         this.drawSelection(offsetX, offsetY, tileSize);
+        this.drawBoardCursor(offsetX, offsetY, tileSize);
         this.drawIllegalFlash(offsetX, offsetY, tileSize);
 
         this.drawPowerPoints();
 
         this.drawPieces(offsetX, offsetY, tileSize);
+
+        // Debug: show HP info on each piece
+        this.ctx.save();
+        this.ctx.font = 'bold 9px Courier New';
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'top';
+        for (const piece of this.pieces) {
+            if (piece.state === 'MOVING') continue;
+            const stats = UNIT_STATS[piece.type];
+            if (!stats) continue;
+            const baseHP = stats.baseHP ?? 0;
+            const sqColor = this.boardColorCodes?.[piece.row]?.[piece.col] ?? 'D';
+            const sqBonus = this.getSquareHPBonus(piece, sqColor);
+            const pd = piece.persistentDamage ?? 0;
+            const hp = baseHP + sqBonus - pd;
+            const px = offsetX + piece.col * tileSize + tileSize / 2;
+            const py = offsetY + piece.row * tileSize + 1;
+            this.ctx.fillStyle = '#FFFF00';
+            this.ctx.fillText(`HP:${hp}`, px, py);
+            if (pd !== 0) {
+                this.ctx.fillStyle = pd > 0 ? '#FF4444' : '#44FF44';
+                this.ctx.fillText(`pd:${pd}`, px, py + 10);
+            }
+        }
+        this.ctx.restore();
 
         // Draw center text
         this.ctx.fillStyle = '#fff';
@@ -3360,6 +3810,35 @@ class ArchonGame {
         this.ctx.fillText('STRATEGY SCREEN (GRID ONLY)', this.width / 2, offsetY - 14);
 
         this.drawTurnIndicator(offsetX, offsetY);
+
+        if (this.worldShiftMessage !== null) {
+            const t = this.worldShiftTimer;
+            const total = this.worldShiftDuration;
+            const fade = this.worldShiftFadeDuration;
+
+            let alpha;
+            if (t < fade) {
+                alpha = t / fade;
+            } else if (t > total - fade) {
+                alpha = (total - t) / fade;
+            } else {
+                alpha = 1;
+            }
+            alpha = Math.max(0, Math.min(1, alpha));
+
+            this.ctx.save();
+            this.ctx.globalAlpha = alpha;
+            this.ctx.font = '20px AppleII';
+            this.ctx.textAlign = 'center';
+            this.ctx.textBaseline = 'top';
+            this.ctx.fillStyle = '#FFFFFF';
+
+            const msgX = this.width / 2;
+            const msgY = this.height - 60;
+            this.ctx.fillText(this.worldShiftMessage, msgX, msgY);
+            this.ctx.fillText(this.worldShiftMessage, msgX + 1, msgY);
+            this.ctx.restore();
+        }
     }
 
     drawPowerPoints() {
@@ -3394,7 +3873,6 @@ class ArchonGame {
                 color = (c === 'A' || c === 'B' || c === 'C') ? 'blue' : 'red';
             }
 
-            console.log('POWER_POINT', pp.grid, x, y, squareLetter, color);
 
             const img = color === 'red' ? this.redPowerPointImage : this.bluePowerPointImage;
             const loaded = color === 'red' ? this.redPowerPointLoaded : this.bluePowerPointLoaded;
@@ -3511,7 +3989,11 @@ class ArchonGame {
         };
         const toCode = (idx) => String.fromCharCode('A'.charCodeAt(0) + idx);
 
+        const prevColors = this.boardColorCodes.map(row => [...row]);
+        const rotationDirection = this.boardColorDirection ?? 1;
+
         let hitBoundary = false;
+        let anyChanged = false;
 
         for (let row = 0; row < this.boardSize; row++) {
             for (let col = 0; col < this.boardSize; col++) {
@@ -3521,14 +4003,29 @@ class ArchonGame {
                 const next = Math.max(0, Math.min(5, idx + (this.boardColorDirection ?? 1)));
                 this.boardColorCodes[row][col] = toCode(next);
 
+                if (next !== idx) anyChanged = true;
                 if (this.boardColorDirection === +1 && next === 5) hitBoundary = true;
                 if (this.boardColorDirection === -1 && next === 0) hitBoundary = true;
             }
         }
 
+        if (anyChanged) {
+            this.squareFadeFrom = prevColors;
+            this.squareFadeTo = this.boardColorCodes.map(row => [...row]);
+            this.squareFadeTime = 0;
+            this.squareFadeActive = true;
+        }
+
         if (hitBoundary) {
             this.boardColorDirection = (this.boardColorDirection ?? 1) * -1;
         }
+
+        if (rotationDirection > 0) {
+            this.worldShiftMessage = "THE WORLD GROWS DARKER";
+        } else {
+            this.worldShiftMessage = "THE WORLD RETURNS TO LIGHT";
+        }
+        this.worldShiftTimer = 0;
     }
 
     createInitialPiecesLight() {
@@ -4294,7 +4791,6 @@ class ArchonGame {
         if (result.type === 'capture') {
             this.lastCaptureAttempt = result;
             this.strategyInputLocked = true;
-            console.log('Capture attempt', result);
         }
     }
 
@@ -4338,6 +4834,23 @@ class ArchonGame {
             offsetY + y * tileSize + 2,
             tileSize - 4,
             tileSize - 4
+        );
+    }
+
+    drawBoardCursor(offsetX, offsetY, tileSize) {
+        if (!this.boardCursor) return;
+        const x = this.boardCursor.x;
+        const y = this.boardCursor.y;
+        if (!this.isInBounds(x, y)) return;
+
+        const inset = 3;
+        this.ctx.strokeStyle = 'rgba(255, 255, 0, 0.85)';
+        this.ctx.lineWidth = 3;
+        this.ctx.strokeRect(
+            offsetX + x * tileSize + inset,
+            offsetY + y * tileSize + inset,
+            tileSize - inset * 2,
+            tileSize - inset * 2
         );
     }
 
@@ -4535,6 +5048,8 @@ class ArchonGame {
 
         if (!destStack.includes(piece)) destStack.push(piece);
 
+        this.applyPowerPointHP(piece);
+
         if (captureResult) {
             this.startCombat(captureResult);
             return { type: 'move', pieceId: piece.id, square: { x: destX, y: destY } };
@@ -4588,6 +5103,7 @@ class ArchonGame {
     }
 
     endTurn() {
+        this.turnCounter = (this.turnCounter ?? 0) + 1;
         this.selectedPiece = null;
         const prevSide = this.currentSide;
         this.currentSide = this.currentSide === 'light' ? 'dark' : 'light';
@@ -4739,6 +5255,8 @@ class ArchonGame {
 
                     // Re-occupy the destination square.
                     this.board[piece.col][piece.row].push(piece);
+
+                    this.applyPowerPointHP(piece);
 
                     if (capture) {
                         this.startCombat(capture);
