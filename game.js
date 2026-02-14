@@ -2390,6 +2390,10 @@ class ArchonGame {
                     dx += gpStickX;
                     dy += gpStickY;
                 }
+                if (!this.touchState.light.active) {
+                    this.touchState.light.snappedDx = 0;
+                    this.touchState.light.snappedDy = 0;
+                }
                 if (this.touchState.light.active) {
                     const tl = this.touchState.light;
                     if (tl.snappedDx !== 0 || tl.snappedDy !== 0) {
@@ -2414,6 +2418,10 @@ class ArchonGame {
                 if (this.doesSideUseGamepad('dark')) {
                     dx += gpStickX;
                     dy += gpStickY;
+                }
+                if (!this.touchState.dark.active) {
+                    this.touchState.dark.snappedDx = 0;
+                    this.touchState.dark.snappedDy = 0;
                 }
                 if (this.touchState.dark.active) {
                     const td = this.touchState.dark;
@@ -3293,8 +3301,28 @@ class ArchonGame {
         this.ctx.textBaseline = 'alphabetic';
     }
 
+    resetCombatInputState() {
+        for (const side of ['light', 'dark']) {
+            const ts = this.touchState[side];
+            ts.active = false;
+            ts.id = null;
+            ts.startX = 0;
+            ts.startY = 0;
+            ts.dx = 0;
+            ts.dy = 0;
+            ts.snappedDx = 0;
+            ts.snappedDy = 0;
+            ts.startTime = 0;
+            ts.fireId = null;
+            ts.fireTime = 0;
+        }
+        this.combatTouchFire = {};
+        this.combatGamepadAPressed = false;
+    }
+
     startCombat(capture) {
         this.gameState = 'COMBAT';
+        this.resetCombatInputState();
 
         const canvasRestore = {
             width: this.canvas.width,
@@ -3990,6 +4018,7 @@ class ArchonGame {
             this.strategyCanvasStyleWidth = this.canvas.style.width;
             this.strategyCanvasStyleHeight = this.canvas.style.height;
         }
+        this.resetCombatInputState();
         this.gameState = 'STRATEGY';
         this.strategyInputLocked = false;
         this.selectedPiece = null;
