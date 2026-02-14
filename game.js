@@ -603,8 +603,8 @@ class ArchonGame {
         this.configPointerY = 300;
 
         this.touchState = {
-            light: { active: false, id: null, startX: 0, startY: 0, dx: 0, dy: 0 },
-            dark: { active: false, id: null, startX: 0, startY: 0, dx: 0, dy: 0 }
+            light: { active: false, id: null, startX: 0, startY: 0, dx: 0, dy: 0, snappedDx: 0, snappedDy: 0, startTime: 0 },
+            dark: { active: false, id: null, startX: 0, startY: 0, dx: 0, dy: 0, snappedDx: 0, snappedDy: 0, startTime: 0 }
         };
         
         // Input state
@@ -1366,6 +1366,22 @@ class ArchonGame {
             return null;
         };
 
+        const snapTo8Dir = (dx, dy) => {
+            const angle = Math.atan2(dy, dx);
+            const sector = Math.round(angle / (Math.PI / 4));
+            switch (sector) {
+                case 0:  return { dx: 1, dy: 0 };
+                case 1:  return { dx: 1, dy: 1 };
+                case 2:  return { dx: 0, dy: 1 };
+                case 3:  return { dx: -1, dy: 1 };
+                case 4: case -4: return { dx: -1, dy: 0 };
+                case -3: return { dx: -1, dy: -1 };
+                case -2: return { dx: 0, dy: -1 };
+                case -1: return { dx: 1, dy: -1 };
+                default: return { dx: 0, dy: 0 };
+            }
+        };
+
         this.canvas.addEventListener('touchstart', (e) => {
             if (this.gameState !== 'COMBAT') return;
             e.preventDefault();
@@ -1380,6 +1396,9 @@ class ArchonGame {
                 ts.startY = pos.y;
                 ts.dx = 0;
                 ts.dy = 0;
+                ts.snappedDx = 0;
+                ts.snappedDy = 0;
+                ts.startTime = performance.now();
             }
         }, { passive: false });
 
@@ -1393,6 +1412,12 @@ class ArchonGame {
                 const ts = this.touchState[side];
                 ts.dx = pos.x - ts.startX;
                 ts.dy = pos.y - ts.startY;
+                const dist = Math.hypot(ts.dx, ts.dy);
+                if (dist >= 20) {
+                    const snapped = snapTo8Dir(ts.dx, ts.dy);
+                    ts.snappedDx = snapped.dx;
+                    ts.snappedDy = snapped.dy;
+                }
             }
         }, { passive: false });
 
@@ -1403,8 +1428,8 @@ class ArchonGame {
                 const side = findSideByTouchId(touch.identifier);
                 if (!side) continue;
                 const ts = this.touchState[side];
-                const dist = Math.hypot(ts.dx, ts.dy);
-                if (dist < 15) {
+                const elapsed = performance.now() - ts.startTime;
+                if (elapsed < 150) {
                     this.combatTouchFire = this.combatTouchFire ?? {};
                     this.combatTouchFire[side] = true;
                 }
@@ -1412,6 +1437,8 @@ class ArchonGame {
                 ts.id = null;
                 ts.dx = 0;
                 ts.dy = 0;
+                ts.snappedDx = 0;
+                ts.snappedDy = 0;
             }
         };
 
@@ -2343,8 +2370,11 @@ class ArchonGame {
                 }
                 if (this.touchState.light.active) {
                     const tl = this.touchState.light;
-                    const tlen = Math.hypot(tl.dx, tl.dy);
-                    if (tlen > 5) { dx += tl.dx / tlen; dy += tl.dy / tlen; }
+                    if (tl.snappedDx !== 0 || tl.snappedDy !== 0) {
+                        const slen = Math.hypot(tl.snappedDx, tl.snappedDy) || 1;
+                        dx += tl.snappedDx / slen;
+                        dy += tl.snappedDy / slen;
+                    }
                 }
             }
             moveActor(l, lightPiece, dx, dy);
@@ -2365,8 +2395,11 @@ class ArchonGame {
                 }
                 if (this.touchState.dark.active) {
                     const td = this.touchState.dark;
-                    const tlen = Math.hypot(td.dx, td.dy);
-                    if (tlen > 5) { dx += td.dx / tlen; dy += td.dy / tlen; }
+                    if (td.snappedDx !== 0 || td.snappedDy !== 0) {
+                        const slen = Math.hypot(td.snappedDx, td.snappedDy) || 1;
+                        dx += td.snappedDx / slen;
+                        dy += td.snappedDy / slen;
+                    }
                 }
             }
             moveActor(d, darkPiece, dx, dy);
