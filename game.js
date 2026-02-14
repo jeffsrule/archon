@@ -597,6 +597,10 @@ class ArchonGame {
         };
         this.gamepadAPressed = false;
         this.combatGamepadAPressed = false;
+        this.splashGamepadAPressed = false;
+        this.configGamepadAPressed = false;
+        this.configPointerX = 400;
+        this.configPointerY = 300;
         
         // Input state
         this.keys = {};
@@ -1331,6 +1335,10 @@ class ArchonGame {
             if (!pos) return;
             this.mouseX = pos.x;
             this.mouseY = pos.y;
+            if (this.gameState === 'CONFIG') {
+                this.configPointerX = pos.x;
+                this.configPointerY = pos.y;
+            }
         });
     }
     
@@ -1553,10 +1561,72 @@ class ArchonGame {
         }
     }
 
+    updateConfig(deltaTime) {
+        const gpads = navigator.getGamepads ? navigator.getGamepads() : [];
+        const gp = gpads[0] ?? gpads[1] ?? gpads[2] ?? gpads[3];
+        if (!gp) return;
+
+        const rawX = gp.axes[0] ?? 0;
+        const rawY = gp.axes[1] ?? 0;
+        const stickX = Math.abs(rawX) >= 0.2 ? rawX : 0;
+        const stickY = Math.abs(rawY) >= 0.2 ? rawY : 0;
+        const pointerSpeed = 7;
+
+        if (stickX !== 0 || stickY !== 0) {
+            this.configPointerX += stickX * pointerSpeed;
+            this.configPointerY += stickY * pointerSpeed;
+            this.configPointerX = Math.max(0, Math.min(this.width, this.configPointerX));
+            this.configPointerY = Math.max(0, Math.min(this.height, this.configPointerY));
+            this.mouseX = this.configPointerX;
+            this.mouseY = this.configPointerY;
+        }
+
+        const aDown = gp.buttons[0]?.pressed ?? false;
+        if (aDown && !this.configGamepadAPressed) {
+            const mx = this.configPointerX;
+            const my = this.configPointerY;
+
+            for (let i = 0; i < (this.clickZones?.length ?? 0); i++) {
+                const z = this.clickZones[i];
+                if (mx < z.x || my < z.y || mx > (z.x + z.width) || my > (z.y + z.height)) continue;
+
+                if (z.type === 'accept') {
+                    this.acceptConfigAndEnterStrategy();
+                    break;
+                }
+
+                if (!this.configState) {
+                    this.configState = {
+                        playing: 'TWO_PLAYERS_BOTH_ON_KEYBOARD',
+                        sound: 'SOUND_ON',
+                        order: 'LIGHT_FIRST'
+                    };
+                }
+
+                if (z.type === 'playing') this.configState.playing = z.value;
+                if (z.type === 'sound') this.configState.sound = z.value;
+                if (z.type === 'order') this.configState.order = z.value;
+                break;
+            }
+        }
+        this.configGamepadAPressed = aDown;
+    }
+
     updateSplash(deltaTime) {
         const now = performance.now();
         if ((now - (this.splashStartTime ?? now)) >= 7000) {
             this.enterStrategyFromSplash();
+            return;
+        }
+
+        const gpads = navigator.getGamepads ? navigator.getGamepads() : [];
+        const gp = gpads[0] ?? gpads[1] ?? gpads[2] ?? gpads[3];
+        if (gp) {
+            const aDown = gp.buttons[0]?.pressed ?? false;
+            if (aDown && !this.splashGamepadAPressed) {
+                this.enterStrategyFromSplash();
+            }
+            this.splashGamepadAPressed = aDown;
         }
     }
 
@@ -1638,7 +1708,7 @@ class ArchonGame {
         if (this.gameState === 'SPLASH') {
             this.updateSplash(deltaTime);
         } else if (this.gameState === 'CONFIG') {
-            // no interaction yet
+            this.updateConfig(deltaTime);
         } else if (this.gameState === 'COMBAT') {
             this.updateCombat(deltaTime);
         } else {
