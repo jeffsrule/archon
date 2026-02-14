@@ -601,6 +601,11 @@ class ArchonGame {
         this.configGamepadAPressed = false;
         this.configPointerX = 400;
         this.configPointerY = 300;
+
+        this.touchState = {
+            light: { active: false, id: null, startX: 0, startY: 0, dx: 0, dy: 0 },
+            dark: { active: false, id: null, startX: 0, startY: 0, dx: 0, dy: 0 }
+        };
         
         // Input state
         this.keys = {};
@@ -1340,6 +1345,78 @@ class ArchonGame {
                 this.configPointerY = pos.y;
             }
         });
+
+        const getTouchCanvasPos = (touch) => {
+            const rect = this.canvas.getBoundingClientRect();
+            const scaleX = this.canvas.width / rect.width;
+            const scaleY = this.canvas.height / rect.height;
+            return {
+                x: (touch.clientX - rect.left) * scaleX,
+                y: (touch.clientY - rect.top) * scaleY
+            };
+        };
+
+        const getSideForTouch = (canvasX) => {
+            return canvasX < this.canvas.width / 2 ? 'light' : 'dark';
+        };
+
+        const findSideByTouchId = (id) => {
+            if (this.touchState.light.active && this.touchState.light.id === id) return 'light';
+            if (this.touchState.dark.active && this.touchState.dark.id === id) return 'dark';
+            return null;
+        };
+
+        this.canvas.addEventListener('touchstart', (e) => {
+            if (this.gameState !== 'COMBAT') return;
+            e.preventDefault();
+            for (const touch of e.changedTouches) {
+                const pos = getTouchCanvasPos(touch);
+                const side = getSideForTouch(pos.x);
+                const ts = this.touchState[side];
+                if (ts.active) continue;
+                ts.active = true;
+                ts.id = touch.identifier;
+                ts.startX = pos.x;
+                ts.startY = pos.y;
+                ts.dx = 0;
+                ts.dy = 0;
+            }
+        }, { passive: false });
+
+        this.canvas.addEventListener('touchmove', (e) => {
+            if (this.gameState !== 'COMBAT') return;
+            e.preventDefault();
+            for (const touch of e.changedTouches) {
+                const side = findSideByTouchId(touch.identifier);
+                if (!side) continue;
+                const pos = getTouchCanvasPos(touch);
+                const ts = this.touchState[side];
+                ts.dx = pos.x - ts.startX;
+                ts.dy = pos.y - ts.startY;
+            }
+        }, { passive: false });
+
+        const handleTouchEnd = (e) => {
+            if (this.gameState !== 'COMBAT') return;
+            e.preventDefault();
+            for (const touch of e.changedTouches) {
+                const side = findSideByTouchId(touch.identifier);
+                if (!side) continue;
+                const ts = this.touchState[side];
+                const dist = Math.hypot(ts.dx, ts.dy);
+                if (dist < 15) {
+                    this.combatTouchFire = this.combatTouchFire ?? {};
+                    this.combatTouchFire[side] = true;
+                }
+                ts.active = false;
+                ts.id = null;
+                ts.dx = 0;
+                ts.dy = 0;
+            }
+        };
+
+        this.canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
+        this.canvas.addEventListener('touchcancel', handleTouchEnd, { passive: false });
     }
     
     updateGamepadStatus(status) {
@@ -1722,6 +1799,11 @@ class ArchonGame {
     }
 
     updateStrategy(deltaTime) {
+        if (this.keys['KeyH']) {
+            this.keys['KeyH'] = false;
+            this.showHPDebugOverlay = !this.showHPDebugOverlay;
+        }
+
         this.powerPointFlickerTime += deltaTime;
         this.updateIllegalFlash(deltaTime);
         this.updatePieceMovement(deltaTime);
@@ -2110,6 +2192,38 @@ class ArchonGame {
         }
         this.combatGamepadAPressed = gpADown;
 
+        if (this.combatTouchFire?.light) {
+            this.combatTouchFire.light = false;
+            if (lightCombatType === 'PROJECTILE') {
+                trySpawnProjectile(lightActor, 'light');
+            } else if (lightCombatType === 'AURA') {
+                const lightEffectiveType = this.getEffectiveCombatTypeForPiece(lightPiece);
+                if (lightEffectiveType === 'Phoenix') {
+                    startPhoenixExplosion(lightActor);
+                } else {
+                    startAuraAttack(lightActor);
+                }
+            } else {
+                startAttack(lightActor, lightPiece);
+            }
+        }
+
+        if (this.combatTouchFire?.dark) {
+            this.combatTouchFire.dark = false;
+            if (darkCombatType === 'PROJECTILE') {
+                trySpawnProjectile(darkActor, 'dark');
+            } else if (darkCombatType === 'AURA') {
+                const darkEffectiveType = this.getEffectiveCombatTypeForPiece(darkPiece);
+                if (darkEffectiveType === 'Phoenix') {
+                    startPhoenixExplosion(darkActor);
+                } else {
+                    startAuraAttack(darkActor);
+                }
+            } else {
+                startAttack(darkActor, darkPiece);
+            }
+        }
+
         if (lightCombatType === 'AURA') {
             const lightEffectiveType = this.getEffectiveCombatTypeForPiece(lightPiece);
             if (lightEffectiveType === 'Phoenix') updatePhoenixExplosion(lightActor);
@@ -2227,6 +2341,11 @@ class ArchonGame {
                     dx += gpStickX;
                     dy += gpStickY;
                 }
+                if (this.touchState.light.active) {
+                    const tl = this.touchState.light;
+                    const tlen = Math.hypot(tl.dx, tl.dy);
+                    if (tlen > 5) { dx += tl.dx / tlen; dy += tl.dy / tlen; }
+                }
             }
             moveActor(l, lightPiece, dx, dy);
         }
@@ -2243,6 +2362,11 @@ class ArchonGame {
                 if (this.doesSideUseGamepad('dark')) {
                     dx += gpStickX;
                     dy += gpStickY;
+                }
+                if (this.touchState.dark.active) {
+                    const td = this.touchState.dark;
+                    const tlen = Math.hypot(td.dx, td.dy);
+                    if (tlen > 5) { dx += td.dx / tlen; dy += td.dy / tlen; }
                 }
             }
             moveActor(d, darkPiece, dx, dy);
@@ -3909,30 +4033,32 @@ class ArchonGame {
 
         this.drawPieces(offsetX, offsetY, tileSize);
 
-        // Debug: show HP info on each piece
-        this.ctx.save();
-        this.ctx.font = 'bold 9px Courier New';
-        this.ctx.textAlign = 'center';
-        this.ctx.textBaseline = 'top';
-        for (const piece of this.pieces) {
-            if (piece.state === 'MOVING') continue;
-            const stats = UNIT_STATS[piece.type];
-            if (!stats) continue;
-            const baseHP = stats.baseHP ?? 0;
-            const sqColor = this.boardColorCodes?.[piece.row]?.[piece.col] ?? 'D';
-            const sqBonus = this.getSquareHPBonus(piece, sqColor);
-            const pd = piece.persistentDamage ?? 0;
-            const hp = baseHP + sqBonus - pd;
-            const px = offsetX + piece.col * tileSize + tileSize / 2;
-            const py = offsetY + piece.row * tileSize + 1;
-            this.ctx.fillStyle = '#FFFF00';
-            this.ctx.fillText(`HP:${hp}`, px, py);
-            if (pd !== 0) {
-                this.ctx.fillStyle = pd > 0 ? '#FF4444' : '#44FF44';
-                this.ctx.fillText(`pd:${pd}`, px, py + 10);
+        // Debug: show HP info on each piece (toggle with H key)
+        if (this.showHPDebugOverlay) {
+            this.ctx.save();
+            this.ctx.font = 'bold 9px Courier New';
+            this.ctx.textAlign = 'center';
+            this.ctx.textBaseline = 'top';
+            for (const piece of this.pieces) {
+                if (piece.state === 'MOVING') continue;
+                const stats = UNIT_STATS[piece.type];
+                if (!stats) continue;
+                const baseHP = stats.baseHP ?? 0;
+                const sqColor = this.boardColorCodes?.[piece.row]?.[piece.col] ?? 'D';
+                const sqBonus = this.getSquareHPBonus(piece, sqColor);
+                const pd = piece.persistentDamage ?? 0;
+                const hp = baseHP + sqBonus - pd;
+                const px = offsetX + piece.col * tileSize + tileSize / 2;
+                const py = offsetY + piece.row * tileSize + 1;
+                this.ctx.fillStyle = '#FFFF00';
+                this.ctx.fillText(`HP:${hp}`, px, py);
+                if (pd !== 0) {
+                    this.ctx.fillStyle = pd > 0 ? '#FF4444' : '#44FF44';
+                    this.ctx.fillText(`pd:${pd}`, px, py + 10);
+                }
             }
+            this.ctx.restore();
         }
-        this.ctx.restore();
 
         // Draw center text
         this.ctx.fillStyle = '#fff';
