@@ -606,6 +606,30 @@ class ArchonGame {
             light: { active: false, id: null, startX: 0, startY: 0, dx: 0, dy: 0, snappedDx: 0, snappedDy: 0, startTime: 0, fireId: null, fireTime: 0 },
             dark: { active: false, id: null, startX: 0, startY: 0, dx: 0, dy: 0, snappedDx: 0, snappedDy: 0, startTime: 0, fireId: null, fireTime: 0 }
         };
+
+        this.spellMenu = {
+            active: false,
+            casterId: null,
+            selectedIndex: 0,
+            spells: [
+                "TELEPORT",
+                "HEAL",
+                "SHIFT TIME",
+                "SUMMON ELEMENTAL",
+                "REVIVE",
+                "IMPRISON",
+                "CEASE CONJURING"
+            ],
+            message: null,
+            messageTimer: 0,
+            messageDuration: 2.0,
+            scrollCooldown: 0
+        };
+        this.lastFirePressTime = 0;
+        this.fireDoublePressWindow = 300;
+        this.gamepadBPressed = false;
+        this.lastPointerTapTime = 0;
+        this.pointerDoubleTapWindow = 300;
         
         // Input state
         this.keys = {};
@@ -1389,6 +1413,42 @@ class ArchonGame {
         };
 
         this.canvas.addEventListener('touchstart', (e) => {
+            if (this.gameState === 'STRATEGY') {
+                e.preventDefault();
+                if (this.strategyInputLocked || this.spellMenu.active) return;
+                const touch = e.changedTouches[0];
+                if (!touch) return;
+                const pos = getTouchCanvasPos(touch);
+                const layout = this.boardLayout ?? this.computeBoardLayout();
+                const localX = pos.x - layout.offsetX;
+                const localY = pos.y - layout.offsetY;
+                if (localX < 0 || localY < 0 || localX >= layout.boardPixelSize || localY >= layout.boardPixelSize) return;
+                const tx = Math.floor(localX / layout.tileSize);
+                const ty = Math.floor(localY / layout.tileSize);
+                if (!this.isInBounds(tx, ty)) return;
+                const stack = this.board[tx][ty];
+                const friendly = stack.find(p => p.side === this.currentSide);
+                if (friendly) {
+                    const friendlyMovable = stack.find(p => {
+                        if (p.side !== this.currentSide) return false;
+                        const s = this.getUnitStats(p.type);
+                        return s?.moveType && (s.moveRange ?? 0) > 0;
+                    });
+                    const target = friendlyMovable ?? friendly;
+                    const now = performance.now();
+                    if (this.isMage(target) && now - this.lastPointerTapTime < this.pointerDoubleTapWindow) {
+                        this.selectedPiece = target;
+                        if (this.canOpenSpellMenuFor(target)) {
+                            this.openSpellMenu(target);
+                            this.lastPointerTapTime = 0;
+                            return;
+                        }
+                    }
+                    this.lastPointerTapTime = now;
+                    this.selectedPiece = target;
+                }
+                return;
+            }
             if (this.gameState !== 'COMBAT') return;
             e.preventDefault();
             for (const touch of e.changedTouches) {
@@ -1841,10 +1901,30 @@ class ArchonGame {
             this.updateStrategy(deltaTime);
         }
         
-        // Check for exit
-        if (this.keys['Escape']) {
+        // Check for exit (but not if spell menu is consuming Escape)
+        if (this.keys['Escape'] && !this.spellMenu?.active) {
             this.running = false;
         }
+    }
+
+    isMage(piece) {
+        return piece && (piece.type === 'Wizard' || piece.type === 'Sorceress');
+    }
+
+    canOpenSpellMenuFor(piece) {
+        return piece
+            && this.isMage(piece)
+            && piece.side === this.currentSide
+            && piece.state === 'IDLE'
+            && !this.spellMenu.active;
+    }
+
+    openSpellMenu(piece) {
+        this.spellMenu.active = true;
+        this.spellMenu.casterId = piece.id;
+        this.spellMenu.selectedIndex = 0;
+        this.spellMenu.message = null;
+        this.spellMenu.scrollCooldown = 0;
     }
 
     updateStrategy(deltaTime) {
@@ -1864,6 +1944,13 @@ class ArchonGame {
             }
         }
 
+        if (this.spellMenu.message !== null) {
+            this.spellMenu.messageTimer += deltaTime;
+            if (this.spellMenu.messageTimer >= this.spellMenu.messageDuration) {
+                this.spellMenu.message = null;
+            }
+        }
+
         if (this.squareFadeActive) {
             this.squareFadeTime += deltaTime;
             if (this.squareFadeTime >= this.squareFadeDuration) {
@@ -1873,6 +1960,91 @@ class ArchonGame {
 
         const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
         const gp = gamepads[0] ?? gamepads[1] ?? gamepads[2] ?? gamepads[3];
+
+
+        if (this.spellMenu.active) {
+            this.spellMenu.scrollCooldown = Math.max(0, this.spellMenu.scrollCooldown - deltaTime);
+            const spellCount = this.spellMenu.spells.length;
+
+            const fireKey = this.currentSide === 'light' ? 'Space' : 'Enter';
+            const upKey = this.currentSide === 'light' ? 'KeyW' : 'ArrowUp';
+            const downKey = this.currentSide === 'light' ? 'KeyS' : 'ArrowDown';
+
+            if (this.keys[upKey]) {
+                this.keys[upKey] = false;
+                this.spellMenu.selectedIndex = (this.spellMenu.selectedIndex - 1 + spellCount) % spellCount;
+            }
+            if (this.keys[downKey]) {
+                this.keys[downKey] = false;
+                this.spellMenu.selectedIndex = (this.spellMenu.selectedIndex + 1) % spellCount;
+            }
+
+            if (gp) {
+                if (this.spellMenu.scrollCooldown <= 0) {
+                    const ax1 = gp.axes[1] ?? 0;
+                    if (ax1 < -0.5) {
+                        this.spellMenu.selectedIndex = (this.spellMenu.selectedIndex - 1 + spellCount) % spellCount;
+                        this.spellMenu.scrollCooldown = 0.15;
+                    } else if (ax1 > 0.5) {
+                        this.spellMenu.selectedIndex = (this.spellMenu.selectedIndex + 1) % spellCount;
+                        this.spellMenu.scrollCooldown = 0.15;
+                    }
+                }
+
+                const aDown = gp.buttons[0]?.pressed ?? false;
+                if (aDown && !this.gamepadAPressed) {
+                    this.spellMenu.message = "IT IS DONE";
+                    this.spellMenu.messageTimer = 0;
+                    this.spellMenu.active = false;
+                }
+                this.gamepadAPressed = aDown;
+
+                const bDown = gp.buttons[1]?.pressed ?? false;
+                if (bDown && !this.gamepadBPressed) {
+                    this.spellMenu.message = "SPELL IS CANCELLED. CHOOSE ANOTHER.";
+                    this.spellMenu.messageTimer = 0;
+                    this.spellMenu.active = false;
+                }
+                this.gamepadBPressed = bDown;
+            }
+
+            if (this.keys[fireKey]) {
+                this.keys[fireKey] = false;
+                this.spellMenu.message = "IT IS DONE";
+                this.spellMenu.messageTimer = 0;
+                this.spellMenu.active = false;
+            }
+
+            if (this.keys['Escape']) {
+                this.keys['Escape'] = false;
+                this.spellMenu.message = "SPELL IS CANCELLED. CHOOSE ANOTHER.";
+                this.spellMenu.messageTimer = 0;
+                this.spellMenu.active = false;
+            }
+
+            return;
+        }
+
+        const fireKey = this.currentSide === 'light' ? 'Space' : 'Enter';
+        if (this.keys[fireKey]) {
+            this.keys[fireKey] = false;
+            const now = performance.now();
+            if (now - this.lastFirePressTime < this.fireDoublePressWindow && this.canOpenSpellMenuFor(this.selectedPiece)) {
+                this.openSpellMenu(this.selectedPiece);
+                this.lastFirePressTime = 0;
+            } else {
+                this.lastFirePressTime = now;
+            }
+        }
+
+        if (gp) {
+            const bDown = gp.buttons[1]?.pressed ?? false;
+            if (bDown && !this.gamepadBPressed && this.canOpenSpellMenuFor(this.selectedPiece)) {
+                this.openSpellMenu(this.selectedPiece);
+            }
+            this.gamepadBPressed = bDown;
+        }
+
         if (gp) {
             this.boardCursor.moveCooldown = Math.max(0, (this.boardCursor.moveCooldown ?? 0) - deltaTime);
 
@@ -4180,6 +4352,47 @@ class ArchonGame {
             this.ctx.fillText(this.worldShiftMessage, msgX + 1, msgY);
             this.ctx.restore();
         }
+
+        if (this.spellMenu.active) {
+            this.ctx.save();
+            this.ctx.font = '20px AppleII';
+            this.ctx.textAlign = 'center';
+            this.ctx.textBaseline = 'top';
+            this.ctx.fillStyle = '#FFFFFF';
+            const smX = this.width / 2;
+            const smY = this.height - 60;
+            this.ctx.fillText('SELECT A SPELL', smX, smY);
+            this.ctx.fillText('SELECT A SPELL', smX + 1, smY);
+            const spellName = this.spellMenu.spells[this.spellMenu.selectedIndex] ?? '';
+            this.ctx.fillText(spellName, smX, smY + 24);
+            this.ctx.fillText(spellName, smX + 1, smY + 24);
+            this.ctx.restore();
+        } else if (this.spellMenu.message !== null) {
+            const t = this.spellMenu.messageTimer;
+            const total = this.spellMenu.messageDuration;
+            const fade = 0.4;
+            let alpha;
+            if (t < fade) {
+                alpha = t / fade;
+            } else if (t > total - fade) {
+                alpha = (total - t) / fade;
+            } else {
+                alpha = 1;
+            }
+            alpha = Math.max(0, Math.min(1, alpha));
+
+            this.ctx.save();
+            this.ctx.globalAlpha = alpha;
+            this.ctx.font = '20px AppleII';
+            this.ctx.textAlign = 'center';
+            this.ctx.textBaseline = 'top';
+            this.ctx.fillStyle = '#FFFFFF';
+            const smX = this.width / 2;
+            const smY = this.height - 60;
+            this.ctx.fillText(this.spellMenu.message, smX, smY);
+            this.ctx.fillText(this.spellMenu.message, smX + 1, smY);
+            this.ctx.restore();
+        }
     }
 
     drawPowerPoints() {
@@ -5088,6 +5301,7 @@ class ArchonGame {
 
         if (this.gameState !== 'STRATEGY') return;
         if (this.strategyInputLocked) return;
+        if (this.spellMenu.active) return;
         const tile = this.getTileFromMouseEvent(e);
         if (!tile) {
             this.selectedPiece = null;
@@ -5106,7 +5320,20 @@ class ArchonGame {
                     const s = this.getUnitStats(p.type);
                     return s?.moveType && (s.moveRange ?? 0) > 0;
                 });
-                this.selectedPiece = friendlyMovable ?? friendly;
+                const target = friendlyMovable ?? friendly;
+
+                const now = performance.now();
+                if (this.isMage(target) && now - this.lastPointerTapTime < this.pointerDoubleTapWindow) {
+                    this.selectedPiece = target;
+                    if (this.canOpenSpellMenuFor(target)) {
+                        this.openSpellMenu(target);
+                        this.lastPointerTapTime = 0;
+                        return;
+                    }
+                }
+                this.lastPointerTapTime = now;
+
+                this.selectedPiece = target;
                 return;
             }
 
