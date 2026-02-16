@@ -701,6 +701,7 @@ class ArchonGame {
                 "SHIFT TIME",
                 "SUMMON ELEMENTAL",
                 "REVIVE",
+                "EXCHANGE",
                 "IMPRISON",
                 "CEASE CONJURING"
             ],
@@ -708,6 +709,10 @@ class ArchonGame {
             messageTimer: 0,
             messageDuration: 2.0,
             scrollCooldown: 0
+        };
+        this.usedSpells = {
+            light: new Set(),
+            dark: new Set()
         };
         this.lastFirePressTime = 0;
         this.fireDoublePressWindow = 300;
@@ -724,6 +729,8 @@ class ArchonGame {
         this.lastSummonedElementalType = null;
         this.lastSummonedElementalSide = null;
         this.summonVisual = null;
+        this.deadPieces = [];
+        this.reviveState = null;
         
         // Input state
         this.keys = {};
@@ -1312,6 +1319,28 @@ class ArchonGame {
         return spriteObj?.img ?? null;
     }
 
+    getSpriteForType(type) {
+        const map = {
+            'Knight': this.knightSprite,
+            'Goblin': this.goblinSprite,
+            'Unicorn': this.unicornSprite,
+            'Basilisk': this.basiliskSprite,
+            'Sorceress': this.sorceressSprite,
+            'Wizard': this.wizardSprite,
+            'Phoenix': this.phoenixSprite,
+            'Archer': this.archerSprite,
+            'Golem': this.golemSprite,
+            'Troll': this.trollSprite,
+            'Banshee': this.bansheeSprite,
+            'Dragon': this.dragonSprite,
+            'Valkyrie': this.valkyrieSprite,
+            'Djinn': this.djinnSprite,
+            'Manticore': this.manticoreSprite,
+            'Shape Shifter': this.shapeshifterSprite
+        };
+        return map[type] ?? null;
+    }
+
     recolorImageToDarkBlue(originalImage) {
         if (!originalImage) return null;
 
@@ -1626,7 +1655,13 @@ class ArchonGame {
                 if (!this.isInBounds(tx, ty)) return;
 
                 if (this.spellState.activeSpell) {
-                    this.handleSpellTargetSelect(tx, ty);
+                    if (this.spellState.phase === 'REVIVE_SELECT_ICON') {
+                        return;
+                    } else if (this.spellState.phase === 'REVIVE_PLACE') {
+                        this.handleRevivePlacement(tx, ty);
+                    } else {
+                        this.handleSpellTargetSelect(tx, ty);
+                    }
                     return;
                 }
 
@@ -2123,10 +2158,21 @@ class ArchonGame {
             && this.isMage(piece)
             && piece.side === this.currentSide
             && piece.state === 'IDLE'
+            && !piece.imprisoned
             && !this.spellMenu.active;
     }
 
     openSpellMenu(piece) {
+        const masterSpellList = ["TELEPORT", "HEAL", "SHIFT TIME", "SUMMON ELEMENTAL", "REVIVE", "EXCHANGE", "IMPRISON", "CEASE CONJURING"];
+        const available = masterSpellList.filter(s => !this.usedSpells[piece.side].has(s));
+
+        if (available.length === 0) {
+            this.spellMenu.message = "NO SPELLS REMAIN";
+            this.spellMenu.messageTimer = 0;
+            return;
+        }
+
+        this.spellMenu.spells = available;
         this.spellMenu.active = true;
         this.spellMenu.casterId = piece.id;
         this.spellMenu.selectedIndex = 0;
@@ -2138,11 +2184,75 @@ class ArchonGame {
         const spellName = this.spellMenu.spells[this.spellMenu.selectedIndex];
         this.spellMenu.active = false;
 
+        if (this.usedSpells[this.currentSide].has(spellName)) {
+            this.cancelSpell();
+            return;
+        }
+
         if (spellName === 'TELEPORT') {
             this.spellState.activeSpell = 'TELEPORT';
             this.spellState.phase = 'PICK_SOURCE';
             this.spellState.casterPieceId = this.spellMenu.casterId;
             this.spellState.sourcePieceId = null;
+            return;
+        }
+
+        if (spellName === 'SHIFT TIME') {
+            this.boardColorDirection = (this.boardColorDirection ?? 1) * -1;
+
+            this.rotateBoardColors();
+
+            this.usedSpells[this.currentSide].add('SHIFT TIME');
+            this.spellMenu.message = "SHIFT TIME";
+            this.spellMenu.messageLine2 = "THE FLOW OF TIME IS REVERSED.";
+            this.spellMenu.messageTimer = 0;
+            this.spellMenu.messageDuration = 4.0;
+            this.spellMenu.messageFadeIn = 0.2;
+            this.selectedPiece = null;
+            this.endTurn();
+            return;
+        }
+
+        if (spellName === 'HEAL') {
+            const damagedFriendly = this.pieces.filter(p => p.side === this.currentSide && (p.persistentDamage ?? 0) > 0);
+            if (damagedFriendly.length === 0) {
+                this.cancelSpell();
+                return;
+            }
+            this.spellState.activeSpell = 'HEAL';
+            this.spellState.phase = 'PICK_TARGET';
+            this.spellState.casterPieceId = this.spellMenu.casterId;
+            return;
+        }
+
+        if (spellName === 'EXCHANGE') {
+            this.spellState.activeSpell = 'EXCHANGE';
+            this.spellState.phase = 'PICK_FIRST';
+            this.spellState.casterPieceId = this.spellMenu.casterId;
+            this.spellState.sourcePieceId = null;
+            return;
+        }
+
+        if (spellName === 'REVIVE') {
+            const caster = this.getPieceById(this.spellMenu.casterId);
+            const deadFriendly = this.deadPieces.filter(dp => dp.side === this.currentSide);
+            const charmedSquares = this.getCharmedSquaresForMage(caster);
+
+            if (deadFriendly.length === 0 || charmedSquares.length === 0) {
+                this.cancelSpell();
+                return;
+            }
+
+            this.spellState.activeSpell = 'REVIVE';
+            this.spellState.phase = 'REVIVE_SELECT_ICON';
+            this.spellState.casterPieceId = this.spellMenu.casterId;
+            this.reviveState = {
+                deadList: deadFriendly,
+                selectedIndex: 0,
+                charmedSquares: charmedSquares,
+                chosenDeadPiece: null,
+                warningMessage: null
+            };
             return;
         }
 
@@ -2194,6 +2304,19 @@ class ArchonGame {
             return;
         }
 
+        if (spellName === 'IMPRISON') {
+            const enemies = this.pieces.filter(p => p.side !== this.currentSide && !p.imprisoned);
+            if (enemies.length === 0) {
+                this.cancelSpell();
+                return;
+            }
+            this.spellState.activeSpell = 'IMPRISON';
+            this.spellState.phase = 'PICK_TARGET';
+            this.spellState.casterPieceId = this.spellMenu.casterId;
+            return;
+        }
+
+        this.usedSpells[this.currentSide].add(spellName);
         this.spellMenu.message = "IT IS DONE";
         this.spellMenu.messageTimer = 0;
     }
@@ -2208,6 +2331,7 @@ class ArchonGame {
         this.spellState.sourcePieceId = null;
         this.spellState.summonedElementalType = null;
         this.summonVisual = null;
+        this.reviveState = null;
         this.spellMenu.message = msg || "SPELL IS CANCELLED. CHOOSE ANOTHER.";
         this.spellMenu.messageTimer = 0;
     }
@@ -2219,6 +2343,7 @@ class ArchonGame {
         this.spellState.sourcePieceId = null;
         this.spellState.summonedElementalType = null;
         this.summonVisual = null;
+        this.reviveState = null;
     }
 
     handleSpellTargetSelect(x, y) {
@@ -2244,6 +2369,104 @@ class ArchonGame {
                 return;
             }
             this.executeSpellTeleport(sourcePiece, x, y);
+            return;
+        }
+
+        if (ss.activeSpell === 'HEAL' && ss.phase === 'PICK_TARGET') {
+            const stack = this.board[x][y];
+            const friendly = stack.find(p => p.side === this.currentSide);
+            if (!friendly || (friendly.persistentDamage ?? 0) <= 0) {
+                this.cancelSpell();
+                return;
+            }
+            const stats = UNIT_STATS[friendly.type] ?? {};
+            const baseHP = typeof stats.baseHP === 'number' ? stats.baseHP : 0;
+            const maxHP = typeof stats.maxHP === 'number' ? stats.maxHP : baseHP;
+            friendly.currentHP = maxHP;
+            friendly.persistentDamage = 0;
+
+            this.usedSpells[this.currentSide].add('HEAL');
+            this.resetSpellState();
+            this.spellMenu.message = "IT IS DONE";
+            this.spellMenu.messageTimer = 0;
+            this.spellMenu.messageDuration = 3.0;
+            this.selectedPiece = null;
+            this.endTurn();
+            return;
+        }
+
+        if (ss.activeSpell === 'EXCHANGE' && ss.phase === 'PICK_FIRST') {
+            const stack = this.board[x][y];
+            const piece = stack.find(p => p.state === 'IDLE' || p.state !== undefined);
+            if (!piece) {
+                this.cancelSpell();
+                return;
+            }
+            ss.sourcePieceId = piece.id;
+            ss.phase = 'PICK_SECOND';
+            return;
+        }
+
+        if (ss.activeSpell === 'EXCHANGE' && ss.phase === 'PICK_SECOND') {
+            const stack = this.board[x][y];
+            const secondPiece = stack.find(p => p.id !== ss.sourcePieceId);
+            if (!secondPiece) {
+                this.cancelSpell();
+                return;
+            }
+            const firstPiece = this.getPieceById(ss.sourcePieceId);
+            if (!firstPiece) {
+                this.cancelSpell();
+                return;
+            }
+
+            const firstCol = firstPiece.col;
+            const firstRow = firstPiece.row;
+            const secondCol = secondPiece.col;
+            const secondRow = secondPiece.row;
+
+            const firstStack = this.board[firstCol][firstRow];
+            const firstIdx = firstStack.indexOf(firstPiece);
+            if (firstIdx >= 0) firstStack.splice(firstIdx, 1);
+
+            const secondStack = this.board[secondCol][secondRow];
+            const secondIdx = secondStack.indexOf(secondPiece);
+            if (secondIdx >= 0) secondStack.splice(secondIdx, 1);
+
+            firstPiece.col = secondCol;
+            firstPiece.row = secondRow;
+            secondPiece.col = firstCol;
+            secondPiece.row = firstRow;
+
+            this.board[secondCol][secondRow].push(firstPiece);
+            this.board[firstCol][firstRow].push(secondPiece);
+
+            this.usedSpells[this.currentSide].add('EXCHANGE');
+            this.resetSpellState();
+            this.spellMenu.message = "IT IS DONE";
+            this.spellMenu.messageTimer = 0;
+            this.spellMenu.messageDuration = 3.0;
+            this.selectedPiece = null;
+            this.endTurn();
+            return;
+        }
+
+        if (ss.activeSpell === 'IMPRISON' && ss.phase === 'PICK_TARGET') {
+            const stack = this.board[x][y];
+            const enemy = stack.find(p => p.side !== this.currentSide);
+            if (!enemy || enemy.imprisoned) {
+                this.cancelSpell();
+                return;
+            }
+            enemy.imprisoned = true;
+
+            this.usedSpells[this.currentSide].add('IMPRISON');
+            this.resetSpellState();
+            this.spellMenu.message = "IT IS DONE";
+            this.spellMenu.messageTimer = 0;
+            this.spellMenu.messageDuration = 3.0;
+            this.selectedPiece = null;
+            this.endTurn();
             return;
         }
 
@@ -2275,6 +2498,53 @@ class ArchonGame {
             ss.phase = 'FLYING';
             return;
         }
+    }
+
+    handleRevivePlacement(x, y) {
+        const rs = this.reviveState;
+        if (!rs || !rs.chosenDeadPiece) return;
+
+        const isCharmed = rs.charmedSquares.some(sq => sq.x === x && sq.y === y);
+        if (!isCharmed) {
+            rs.warningMessage = 'THIS IS NOT A CHARMED SQUARE';
+            return;
+        }
+
+        rs.warningMessage = null;
+        const dp = rs.chosenDeadPiece;
+        const stats = UNIT_STATS[dp.type] ?? {};
+        const baseHP = typeof stats.baseHP === 'number' ? stats.baseHP : 0;
+        const maxHP = typeof stats.maxHP === 'number' ? stats.maxHP : baseHP;
+
+        const newPiece = {
+            id: `revived_${Date.now()}_${Math.floor(Math.random() * 10000)}`,
+            type: dp.type,
+            side: dp.side,
+            facing: dp.side === 'light' ? 'E' : 'W',
+            state: 'IDLE',
+            remainingMove: 0,
+            walkAnimTime: 0,
+            injury: 0,
+            persistentDamage: 0,
+            baseHP,
+            maxHP,
+            currentHP: baseHP,
+            col: x,
+            row: y
+        };
+
+        this.pieces.push(newPiece);
+        this.board[x][y].push(newPiece);
+
+        this.deadPieces = this.deadPieces.filter(d => d !== dp);
+
+        this.usedSpells[this.currentSide].add('REVIVE');
+        this.reviveState = null;
+        this.resetSpellState();
+        this.spellMenu.message = "IT IS DONE";
+        this.spellMenu.messageTimer = 0;
+        this.selectedPiece = null;
+        this.endTurn();
     }
 
     executeSpellTeleport(sourcePiece, destX, destY) {
@@ -2320,6 +2590,7 @@ class ArchonGame {
         if (!destStack.includes(sourcePiece)) destStack.push(sourcePiece);
 
         this.applyPowerPointHP(sourcePiece);
+        this.usedSpells[this.currentSide].add('TELEPORT');
         this.resetSpellState();
 
         if (captureResult) {
@@ -2376,6 +2647,7 @@ class ArchonGame {
             square: { x: targetX, y: targetY }
         };
 
+        this.usedSpells[casterSide].add('SUMMON ELEMENTAL');
         this.resetSpellState();
         this.selectedPiece = null;
         this.strategyInputLocked = true;
@@ -2432,6 +2704,8 @@ class ArchonGame {
             this.spellMenu.messageTimer += deltaTime;
             if (this.spellMenu.messageTimer >= this.spellMenu.messageDuration) {
                 this.spellMenu.message = null;
+                this.spellMenu.messageLine2 = null;
+                this.spellMenu.messageFadeIn = null;
             }
         }
 
@@ -2517,6 +2791,82 @@ class ArchonGame {
             }
 
             if (this.spellState.phase === 'FLYING') {
+                return;
+            }
+
+            if (this.spellState.phase === 'REVIVE_SELECT_ICON' && this.reviveState) {
+                const rs = this.reviveState;
+                const upKey = this.currentSide === 'light' ? 'KeyW' : 'ArrowUp';
+                const downKey = this.currentSide === 'light' ? 'KeyS' : 'ArrowDown';
+                const fireKey = this.currentSide === 'light' ? 'Space' : 'Enter';
+
+                if (this.keys[upKey]) {
+                    this.keys[upKey] = false;
+                    rs.selectedIndex = (rs.selectedIndex - 1 + rs.deadList.length) % rs.deadList.length;
+                }
+                if (this.keys[downKey]) {
+                    this.keys[downKey] = false;
+                    rs.selectedIndex = (rs.selectedIndex + 1) % rs.deadList.length;
+                }
+                if (this.keys[fireKey]) {
+                    this.keys[fireKey] = false;
+                    rs.chosenDeadPiece = rs.deadList[rs.selectedIndex];
+                    this.spellState.phase = 'REVIVE_PLACE';
+                    rs.warningMessage = null;
+                }
+
+                if (gp) {
+                    this.boardCursor.moveCooldown = Math.max(0, (this.boardCursor.moveCooldown ?? 0) - deltaTime);
+                    if (this.boardCursor.moveCooldown <= 0) {
+                        const ax1 = gp.axes[1] ?? 0;
+                        if (ax1 < -0.5) {
+                            rs.selectedIndex = (rs.selectedIndex - 1 + rs.deadList.length) % rs.deadList.length;
+                            this.boardCursor.moveCooldown = 0.18;
+                        } else if (ax1 > 0.5) {
+                            rs.selectedIndex = (rs.selectedIndex + 1) % rs.deadList.length;
+                            this.boardCursor.moveCooldown = 0.18;
+                        }
+                    }
+                    const aDown = gp.buttons[0]?.pressed ?? false;
+                    if (aDown && !this.gamepadAPressed) {
+                        rs.chosenDeadPiece = rs.deadList[rs.selectedIndex];
+                        this.spellState.phase = 'REVIVE_PLACE';
+                        rs.warningMessage = null;
+                    }
+                    this.gamepadAPressed = aDown;
+                }
+
+                return;
+            }
+
+            if (this.spellState.phase === 'REVIVE_PLACE' && this.reviveState) {
+                const rs = this.reviveState;
+                const fireKey = this.currentSide === 'light' ? 'Space' : 'Enter';
+
+                if (gp) {
+                    this.boardCursor.moveCooldown = Math.max(0, (this.boardCursor.moveCooldown ?? 0) - deltaTime);
+                    if (this.boardCursor.moveCooldown <= 0) {
+                        const ax0 = gp.axes[0] ?? 0;
+                        const ax1 = gp.axes[1] ?? 0;
+                        let moved = false;
+                        if (ax0 < -0.5) { this.boardCursor.x = Math.max(0, this.boardCursor.x - 1); moved = true; }
+                        else if (ax0 > 0.5) { this.boardCursor.x = Math.min(this.boardSize - 1, this.boardCursor.x + 1); moved = true; }
+                        if (ax1 < -0.5) { this.boardCursor.y = Math.max(0, this.boardCursor.y - 1); moved = true; }
+                        else if (ax1 > 0.5) { this.boardCursor.y = Math.min(this.boardSize - 1, this.boardCursor.y + 1); moved = true; }
+                        if (moved) this.boardCursor.moveCooldown = 0.18;
+                    }
+                    const aDown = gp.buttons[0]?.pressed ?? false;
+                    if (aDown && !this.gamepadAPressed) {
+                        this.handleRevivePlacement(this.boardCursor.x, this.boardCursor.y);
+                    }
+                    this.gamepadAPressed = aDown;
+                }
+
+                if (this.keys[fireKey]) {
+                    this.keys[fireKey] = false;
+                    this.handleRevivePlacement(this.boardCursor.x, this.boardCursor.y);
+                }
+
                 return;
             }
 
@@ -4892,6 +5242,15 @@ class ArchonGame {
         const piece = this.getPieceById(pieceId);
         if (!piece) return;
 
+        if (!piece.id.startsWith('elemental_') && piece.type !== 'Wizard' && piece.type !== 'Sorceress') {
+            this.deadPieces.push({
+                id: piece.id,
+                type: piece.type,
+                side: piece.side,
+                facing: piece.facing
+            });
+        }
+
         this.pieces = this.pieces.filter(p => p.id !== pieceId);
 
         for (let x = 0; x < this.boardSize; x++) {
@@ -4905,6 +5264,26 @@ class ArchonGame {
 
     getPieceById(pieceId) {
         return this.pieces.find(p => p.id === pieceId) ?? null;
+    }
+
+    getCharmedSquaresForMage(magePiece) {
+        if (!magePiece) return [];
+        const mx = magePiece.col;
+        const my = magePiece.row;
+        const results = [];
+        for (let dx = -1; dx <= 1; dx++) {
+            for (let dy = -1; dy <= 1; dy++) {
+                if (dx === 0 && dy === 0) continue;
+                const nx = mx + dx;
+                const ny = my + dy;
+                if (nx < 0 || nx >= this.boardSize || ny < 0 || ny >= this.boardSize) continue;
+                const stack = this.board[nx][ny];
+                if (stack.length === 0) {
+                    results.push({ x: nx, y: ny });
+                }
+            }
+        }
+        return results;
     }
 
     xyToGridPos(x, y) {
@@ -5003,6 +5382,74 @@ class ArchonGame {
             }
         }
 
+        if (this.reviveState && this.spellState.activeSpell === 'REVIVE') {
+            const rs = this.reviveState;
+            const layout = { offsetX, offsetY, tileSize, boardPixelSize };
+
+            if (this.spellState.phase === 'REVIVE_PLACE' || this.spellState.phase === 'REVIVE_SELECT_ICON') {
+                if (rs.charmedSquares && (this.spellState.phase === 'REVIVE_PLACE')) {
+                    this.ctx.save();
+                    for (const sq of rs.charmedSquares) {
+                        const sx = offsetX + sq.x * tileSize;
+                        const sy = offsetY + sq.y * tileSize;
+                        this.ctx.fillStyle = 'rgba(0, 255, 128, 0.25)';
+                        this.ctx.fillRect(sx, sy, tileSize, tileSize);
+                        this.ctx.strokeStyle = 'rgba(0, 255, 128, 0.7)';
+                        this.ctx.lineWidth = 2;
+                        this.ctx.strokeRect(sx + 1, sy + 1, tileSize - 2, tileSize - 2);
+                    }
+                    this.ctx.restore();
+                }
+            }
+
+            if (this.spellState.phase === 'REVIVE_SELECT_ICON') {
+                const deadList = rs.deadList;
+                const side = this.currentSide;
+                const itemH = Math.floor(tileSize * 0.9);
+                const totalH = deadList.length * itemH;
+                const colX = side === 'light'
+                    ? offsetX - Math.floor(tileSize * 1.4)
+                    : offsetX + boardPixelSize + Math.floor(tileSize * 0.4);
+                const colTopY = offsetY + Math.floor((boardPixelSize - totalH) / 2);
+
+                this.ctx.save();
+                this.ctx.imageSmoothingEnabled = false;
+                for (let i = 0; i < deadList.length; i++) {
+                    const dp = deadList[i];
+                    const itemCx = colX + Math.floor(tileSize / 2);
+                    const itemCy = colTopY + i * itemH + Math.floor(itemH / 2);
+
+                    if (i === rs.selectedIndex) {
+                        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+                        this.ctx.fillRect(colX, colTopY + i * itemH, tileSize, itemH);
+                        this.ctx.strokeStyle = '#FFFFFF';
+                        this.ctx.lineWidth = 2;
+                        this.ctx.strokeRect(colX, colTopY + i * itemH, tileSize, itemH);
+                    }
+
+                    const sprite = this.getSpriteForType(dp.type);
+                    if (sprite?.loaded) {
+                        const facing = dp.side === 'light' ? 'E' : 'W';
+                        const useBlue = dp.side === 'dark';
+                        const imageOverride = useBlue ? this.getSpriteImageForPiece(sprite, null, true) : null;
+                        this.drawWalkCycleSprite(sprite, itemCx, itemCy, Math.floor(tileSize * 0.8), facing, 0, imageOverride);
+                    } else {
+                        const radius = Math.floor(tileSize * 0.25);
+                        this.ctx.fillStyle = dp.side === 'dark' ? 'rgba(35, 75, 160, 0.95)' : 'rgba(255, 180, 70, 0.95)';
+                        this.ctx.beginPath();
+                        this.ctx.arc(itemCx, itemCy, radius, 0, Math.PI * 2);
+                        this.ctx.fill();
+                        this.ctx.fillStyle = '#fff';
+                        this.ctx.font = '10px monospace';
+                        this.ctx.textAlign = 'center';
+                        this.ctx.textBaseline = 'middle';
+                        this.ctx.fillText(dp.type.slice(0, 3).toUpperCase(), itemCx, itemCy);
+                    }
+                }
+                this.ctx.restore();
+            }
+        }
+
         // Debug: show HP info on each piece (toggle with H key)
         if (this.showHPDebugOverlay) {
             this.ctx.save();
@@ -5086,10 +5533,28 @@ class ArchonGame {
                 line2 = 'TELEPORT: SELECT A FRIENDLY ICON';
             } else if (this.spellState.activeSpell === 'TELEPORT' && this.spellState.phase === 'PICK_DEST') {
                 line2 = 'TELEPORT: SELECT DESTINATION';
+            } else if (this.spellState.activeSpell === 'HEAL' && this.spellState.phase === 'PICK_TARGET') {
+                line1 = 'WHAT ICON WILL YOU HEAL?';
+                line2 = '';
+            } else if (this.spellState.activeSpell === 'IMPRISON' && this.spellState.phase === 'PICK_TARGET') {
+                line1 = 'IMPRISON';
+                line2 = 'WHICH FOE WILL YOU IMPRISON';
+            } else if (this.spellState.activeSpell === 'EXCHANGE' && this.spellState.phase === 'PICK_FIRST') {
+                line1 = 'CHOOSE AN ICON TO TRANSPOSE';
+                line2 = '';
+            } else if (this.spellState.activeSpell === 'EXCHANGE' && this.spellState.phase === 'PICK_SECOND') {
+                line1 = 'EXCHANGE IT WITH WHICH ICON?';
+                line2 = '';
             } else if (this.spellState.activeSpell === 'SUMMON_ELEMENTAL' && this.spellState.phase === 'PICK_TARGET') {
                 const elName = (this.spellState.summonedElementalType ?? 'ELEMENTAL').toUpperCase();
                 line1 = 'A ' + elName + ' APPEARS!';
                 line2 = 'SEND IT TO THE TARGET';
+            } else if (this.spellState.activeSpell === 'REVIVE' && this.spellState.phase === 'REVIVE_SELECT_ICON') {
+                line1 = 'REVIVE: SELECT AN ICON';
+                line2 = '';
+            } else if (this.spellState.activeSpell === 'REVIVE' && this.spellState.phase === 'REVIVE_PLACE') {
+                line1 = 'PLACE IT WITHIN THE CHARMED SQUARE';
+                line2 = this.reviveState?.warningMessage ?? '';
             }
             this.ctx.fillText(line1, smX, smY);
             this.ctx.fillText(line1, smX + 1, smY);
@@ -5113,12 +5578,13 @@ class ArchonGame {
         } else if (this.spellMenu.message !== null) {
             const t = this.spellMenu.messageTimer;
             const total = this.spellMenu.messageDuration;
-            const fade = 0.4;
+            const fadeIn = this.spellMenu.messageFadeIn ?? 0.4;
+            const fadeOut = 0.4;
             let alpha;
-            if (t < fade) {
-                alpha = t / fade;
-            } else if (t > total - fade) {
-                alpha = (total - t) / fade;
+            if (t < fadeIn) {
+                alpha = t / fadeIn;
+            } else if (t > total - fadeOut) {
+                alpha = (total - t) / fadeOut;
             } else {
                 alpha = 1;
             }
@@ -5134,6 +5600,10 @@ class ArchonGame {
             const smY = this.height - 60;
             this.ctx.fillText(this.spellMenu.message, smX, smY);
             this.ctx.fillText(this.spellMenu.message, smX + 1, smY);
+            if (this.spellMenu.messageLine2) {
+                this.ctx.fillText(this.spellMenu.messageLine2, smX, smY + 24);
+                this.ctx.fillText(this.spellMenu.messageLine2, smX + 1, smY + 24);
+            }
             this.ctx.restore();
         }
     }
@@ -5323,6 +5793,16 @@ class ArchonGame {
             this.worldShiftMessage = "THE WORLD RETURNS TO LIGHT";
         }
         this.worldShiftTimer = 0;
+
+        for (const piece of this.pieces) {
+            if (!piece.imprisoned) continue;
+            const colorCode = this.boardColorCodes?.[piece.row]?.[piece.col];
+            if (piece.side === 'light' && colorCode === 'A') {
+                piece.imprisoned = false;
+            } else if (piece.side === 'dark' && colorCode === 'F') {
+                piece.imprisoned = false;
+            }
+        }
     }
 
     createInitialPiecesLight() {
@@ -5393,16 +5873,23 @@ class ArchonGame {
             const cx = piece.state === 'MOVING' ? piece.renderX : defaultCx;
             const cy = piece.state === 'MOVING' ? piece.renderY : defaultCy;
 
+            const prevAlpha = this.ctx.globalAlpha;
+            if (piece.imprisoned) {
+                this.ctx.globalAlpha = 0.5;
+            }
+
             if (piece.type === 'Knight' && this.knightSprite.loaded) {
                 const walkFrame = piece.state === 'MOVING'
                     ? Math.min(2, Math.floor((piece.walkAnimTime * 10) % 3))
                     : 0;
                 this.drawKnightSprite(cx, cy, tileSize, piece.facing ?? 'E', walkFrame);
+                this.ctx.globalAlpha = prevAlpha;
                 continue;
             }
 
             if (piece.type === 'Goblin' && this.goblinSprite.loaded) {
                 this.drawGoblinSprite(cx, cy, tileSize, piece.facing ?? 'W', 0);
+                this.ctx.globalAlpha = prevAlpha;
                 continue;
             }
 
@@ -5412,6 +5899,7 @@ class ArchonGame {
                     : 0;
                 const defaultFacing = piece.side === 'dark' ? 'W' : 'E';
                 this.drawWalkCycleSprite(this.unicornSprite, cx, cy, tileSize, piece.facing ?? defaultFacing, walkFrame);
+                this.ctx.globalAlpha = prevAlpha;
                 continue;
             }
 
@@ -5421,6 +5909,7 @@ class ArchonGame {
                     : 0;
                 const defaultFacing = piece.side === 'dark' ? 'W' : 'E';
                 this.drawWalkCycleSprite(this.basiliskSprite, cx, cy, tileSize, piece.facing ?? defaultFacing, walkFrame);
+                this.ctx.globalAlpha = prevAlpha;
                 continue;
             }
 
@@ -5430,11 +5919,13 @@ class ArchonGame {
                     : 0;
                 const defaultFacing = piece.side === 'dark' ? 'W' : 'E';
                 this.drawWalkCycleSprite(this.sorceressSprite, cx, cy, tileSize, piece.facing ?? defaultFacing, walkFrame);
+                this.ctx.globalAlpha = prevAlpha;
                 continue;
             }
 
             if (piece.type === 'Wizard' && this.wizardSprite.loaded) {
                 this.drawWizardSprite(cx, cy, tileSize, piece.facing ?? 'E', 0);
+                this.ctx.globalAlpha = prevAlpha;
                 continue;
             }
 
@@ -5449,6 +5940,7 @@ class ArchonGame {
                     }
                 }
                 this.drawWalkCycleSprite(this.phoenixSprite, cx, cy, tileSize, piece.facing ?? 'E', walkFrame);
+                this.ctx.globalAlpha = prevAlpha;
                 continue;
             }
 
@@ -5457,6 +5949,7 @@ class ArchonGame {
                     ? Math.min(2, Math.floor((piece.walkAnimTime * 10) % 3))
                     : 0;
                 this.drawArcherSprite(cx, cy, tileSize, piece.facing ?? 'E', walkFrame);
+                this.ctx.globalAlpha = prevAlpha;
                 continue;
             }
 
@@ -5466,6 +5959,7 @@ class ArchonGame {
                     : 0;
                 const defaultFacing = piece.side === 'dark' ? 'W' : 'E';
                 this.drawWalkCycleSprite(this.golemSprite, cx, cy, tileSize, piece.facing ?? defaultFacing, walkFrame);
+                this.ctx.globalAlpha = prevAlpha;
                 continue;
             }
 
@@ -5475,6 +5969,7 @@ class ArchonGame {
                     : 0;
                 const defaultFacing = piece.side === 'dark' ? 'W' : 'E';
                 this.drawWalkCycleSprite(this.trollSprite, cx, cy, tileSize, piece.facing ?? defaultFacing, walkFrame);
+                this.ctx.globalAlpha = prevAlpha;
                 continue;
             }
 
@@ -5484,6 +5979,7 @@ class ArchonGame {
                     : 0;
                 const defaultFacing = piece.side === 'dark' ? 'W' : 'E';
                 this.drawWalkCycleSprite(this.manticoreSprite, cx, cy, tileSize, piece.facing ?? defaultFacing, walkFrame);
+                this.ctx.globalAlpha = prevAlpha;
                 continue;
             }
 
@@ -5498,6 +5994,7 @@ class ArchonGame {
                     }
                 }
                 this.drawWalkCycleSprite(this.bansheeSprite, cx, cy, tileSize, piece.facing ?? 'W', walkFrame);
+                this.ctx.globalAlpha = prevAlpha;
                 continue;
             }
 
@@ -5513,6 +6010,7 @@ class ArchonGame {
                 }
                 const facing = piece.facing ?? (piece.side === 'dark' ? 'W' : 'E');
                 this.drawWalkCycleSprite(this.dragonSprite, cx, cy, tileSize, facing, walkFrame);
+                this.ctx.globalAlpha = prevAlpha;
                 continue;
             }
 
@@ -5528,6 +6026,7 @@ class ArchonGame {
                 }
                 const facing = piece.facing ?? (piece.side === 'dark' ? 'W' : 'E');
                 this.drawWalkCycleSprite(this.valkyrieSprite, cx, cy, tileSize, facing, walkFrame);
+                this.ctx.globalAlpha = prevAlpha;
                 continue;
             }
 
@@ -5543,6 +6042,7 @@ class ArchonGame {
                 }
                 const facing = piece.facing ?? (piece.side === 'dark' ? 'W' : 'E');
                 this.drawWalkCycleSprite(this.djinnSprite, cx, cy, tileSize, facing, walkFrame);
+                this.ctx.globalAlpha = prevAlpha;
                 continue;
             }
 
@@ -5558,6 +6058,7 @@ class ArchonGame {
                 }
                 const facing = piece.facing ?? 'W';
                 this.drawWalkCycleSprite(this.shapeshifterSprite, cx, cy, tileSize, facing, walkFrame);
+                this.ctx.globalAlpha = prevAlpha;
                 continue;
             }
 
@@ -5578,6 +6079,7 @@ class ArchonGame {
             this.ctx.fillStyle = piece.side === 'dark' ? '#fff' : '#000';
             this.ctx.font = `${Math.max(10, Math.floor(tileSize * 0.22))}px Courier New`;
             this.ctx.fillText(label, cx, cy);
+            this.ctx.globalAlpha = prevAlpha;
         }
 
         this.ctx.textBaseline = 'alphabetic';
@@ -6047,9 +6549,16 @@ class ArchonGame {
         if (this.spellMenu.active) return;
 
         if (this.spellState.activeSpell) {
+            if (this.spellState.phase === 'REVIVE_SELECT_ICON') {
+                return;
+            }
             const tile = this.getTileFromMouseEvent(e);
             if (!tile) return;
-            this.handleSpellTargetSelect(tile.x, tile.y);
+            if (this.spellState.phase === 'REVIVE_PLACE') {
+                this.handleRevivePlacement(tile.x, tile.y);
+            } else {
+                this.handleSpellTargetSelect(tile.x, tile.y);
+            }
             return;
         }
 
@@ -6174,6 +6683,7 @@ class ArchonGame {
     }
 
     tryStartMove(piece, destX, destY) {
+        if (piece?.imprisoned) return false;
         const stats = this.getUnitStats(piece?.type);
         if (!stats) return false;
         const moveType = this.getMoveTypeForPiece(piece);
