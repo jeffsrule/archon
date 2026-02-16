@@ -160,6 +160,38 @@ const SPRITE_PATHS = {
         walk: [
             'assets/Banshee Walk Cycle.png'
         ]
+    },
+    'Air Elemental': {
+        walk: [
+            'assets/Air Elemental Walk Cycle.png'
+        ],
+        projectile: [
+            'assets/Air Elemental Projectile.png'
+        ]
+    },
+    'Water Elemental': {
+        walk: [
+            'assets/Water Elemental Walk Cycle.png'
+        ],
+        projectile: [
+            'assets/Water Elemental Projectile.png'
+        ]
+    },
+    'Fire Elemental': {
+        walk: [
+            'assets/Fire Elemental Walk Cycle.png'
+        ],
+        projectile: [
+            'assets/Fire Elemental Projectile.png'
+        ]
+    },
+    'Earth Elemental': {
+        walk: [
+            'assets/Earth Elemental Walk Cycle.png'
+        ],
+        projectile: [
+            'assets/Earth Elemental Projectile.png'
+        ]
     }
 };
 
@@ -489,6 +521,58 @@ const UNIT_STATS = {
         attacksPerSecond: 0.75,
         shotSpeedMultiplier: 1.3,
         canMoveWhileAttacking: false
+    },
+    'Air Elemental': {
+        combatType: 'PROJECTILE',
+        baseHP: 11.5,
+        maxHP: 18.5,
+        moveType: 'FLY',
+        moveRange: 0,
+        speed: 240,
+        attackDamage: 5,
+        attackDuration: 0.35,
+        attacksPerSecond: 6 / 7,
+        shotSpeedMultiplier: 0.70,
+        canMoveWhileAttacking: false
+    },
+    'Water Elemental': {
+        combatType: 'PROJECTILE',
+        baseHP: 13.5,
+        maxHP: 20.5,
+        moveType: 'FLY',
+        moveRange: 0,
+        speed: 240,
+        attackDamage: 6,
+        attackDuration: 0.35,
+        attacksPerSecond: 3 / 5,
+        shotSpeedMultiplier: 0.50,
+        canMoveWhileAttacking: false
+    },
+    'Fire Elemental': {
+        combatType: 'PROJECTILE',
+        baseHP: 9.5,
+        maxHP: 16.5,
+        moveType: 'FLY',
+        moveRange: 0,
+        speed: 240,
+        attackDamage: 9,
+        attackDuration: 0.35,
+        attacksPerSecond: 1.0,
+        shotSpeedMultiplier: 0.80,
+        canMoveWhileAttacking: false
+    },
+    'Earth Elemental': {
+        combatType: 'PROJECTILE',
+        baseHP: 16.5,
+        maxHP: 23.5,
+        moveType: 'FLY',
+        moveRange: 0,
+        speed: 180,
+        attackDamage: 9,
+        attackDuration: 0.35,
+        attacksPerSecond: 3 / 5,
+        shotSpeedMultiplier: 0.50,
+        canMoveWhileAttacking: false
     }
 };
 
@@ -634,8 +718,12 @@ class ArchonGame {
             activeSpell: null,
             phase: null,
             casterPieceId: null,
-            sourcePieceId: null
+            sourcePieceId: null,
+            summonedElementalType: null
         };
+        this.lastSummonedElementalType = null;
+        this.lastSummonedElementalSide = null;
+        this.summonVisual = null;
         
         // Input state
         this.keys = {};
@@ -1026,6 +1114,102 @@ class ArchonGame {
             directionOrder: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
         };
 
+        this.airElementalSprite = {
+            img: null,
+            loaded: false,
+            blueImg: null,
+            blueLoaded: false,
+            cols: 4,
+            rows: 8,
+            frameW: 0,
+            frameH: 0,
+            directionOrder: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+        };
+
+        this.airProjectileSprite = {
+            img: null,
+            loaded: false,
+            blueImg: null,
+            blueLoaded: false,
+            cols: 1,
+            rows: 8,
+            frameW: 0,
+            frameH: 0,
+            directionOrder: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+        };
+
+        this.waterElementalSprite = {
+            img: null,
+            loaded: false,
+            blueImg: null,
+            blueLoaded: false,
+            cols: 4,
+            rows: 8,
+            frameW: 0,
+            frameH: 0,
+            directionOrder: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+        };
+
+        this.waterProjectileSprite = {
+            img: null,
+            loaded: false,
+            blueImg: null,
+            blueLoaded: false,
+            cols: 1,
+            rows: 8,
+            frameW: 0,
+            frameH: 0,
+            directionOrder: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+        };
+
+        this.fireElementalSprite = {
+            img: null,
+            loaded: false,
+            blueImg: null,
+            blueLoaded: false,
+            cols: 4,
+            rows: 8,
+            frameW: 0,
+            frameH: 0,
+            directionOrder: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+        };
+
+        this.fireProjectileSprite = {
+            img: null,
+            loaded: false,
+            blueImg: null,
+            blueLoaded: false,
+            cols: 1,
+            rows: 8,
+            frameW: 0,
+            frameH: 0,
+            directionOrder: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+        };
+
+        this.earthElementalSprite = {
+            img: null,
+            loaded: false,
+            blueImg: null,
+            blueLoaded: false,
+            cols: 4,
+            rows: 8,
+            frameW: 0,
+            frameH: 0,
+            directionOrder: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+        };
+
+        this.earthProjectileSprite = {
+            img: null,
+            loaded: false,
+            blueImg: null,
+            blueLoaded: false,
+            cols: 1,
+            rows: 8,
+            frameW: 0,
+            frameH: 0,
+            directionOrder: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+        };
+
         this.shapeshifterSprite = {
             img: null,
             loaded: false,
@@ -1066,6 +1250,14 @@ class ArchonGame {
         this.loadManticoreSprite();
         this.loadManticoreProjectileSprite();
         this.loadShapeshifterSprite();
+        this.loadAirElementalSprite();
+        this.loadAirProjectileSprite();
+        this.loadWaterElementalSprite();
+        this.loadWaterProjectileSprite();
+        this.loadFireElementalSprite();
+        this.loadFireProjectileSprite();
+        this.loadEarthElementalSprite();
+        this.loadEarthProjectileSprite();
         
         // Initialize
         this.init();
@@ -1954,15 +2146,68 @@ class ArchonGame {
             return;
         }
 
+        if (spellName === 'SUMMON ELEMENTAL') {
+            const allElementals = ['Air Elemental', 'Water Elemental', 'Fire Elemental', 'Earth Elemental'];
+            let candidates = [...allElementals];
+            if (this.lastSummonedElementalSide !== null && this.lastSummonedElementalSide !== this.currentSide && this.lastSummonedElementalType) {
+                candidates = candidates.filter(e => e !== this.lastSummonedElementalType);
+            }
+            const chosen = candidates[Math.floor(Math.random() * candidates.length)];
+
+            this.spellState.activeSpell = 'SUMMON_ELEMENTAL';
+            this.spellState.phase = 'PICK_TARGET';
+            this.spellState.casterPieceId = this.spellMenu.casterId;
+            this.spellState.summonedElementalType = chosen;
+
+            const layout = this.boardLayout ?? this.computeBoardLayout();
+            const facing = this.currentSide === 'light' ? 'E' : 'W';
+            let previewX, previewY;
+            if (this.currentSide === 'light') {
+                previewX = layout.offsetX - Math.floor(layout.tileSize * 0.8);
+                previewY = layout.offsetY + Math.floor(4 * layout.tileSize + layout.tileSize / 2);
+            } else {
+                previewX = layout.offsetX + layout.boardPixelSize + Math.floor(layout.tileSize * 0.8);
+                previewY = layout.offsetY + Math.floor(4 * layout.tileSize + layout.tileSize / 2);
+            }
+            previewX = Math.max(layout.tileSize / 2, Math.min(this.width - layout.tileSize / 2, previewX));
+            previewY = Math.max(layout.tileSize / 2, Math.min(this.height - layout.tileSize / 2, previewY));
+
+            this.summonVisual = {
+                active: true,
+                type: chosen,
+                side: this.currentSide,
+                phase: 'PREVIEW',
+                startX: previewX,
+                startY: previewY,
+                x: previewX,
+                y: previewY,
+                targetX: 0,
+                targetY: 0,
+                targetGridX: 0,
+                targetGridY: 0,
+                flyTimer: 0,
+                flyDuration: 0.8,
+                facing: facing,
+                animTime: 0,
+                defenderId: null
+            };
+            return;
+        }
+
         this.spellMenu.message = "IT IS DONE";
         this.spellMenu.messageTimer = 0;
     }
 
     cancelSpell(msg) {
+        if (this.spellState.phase === 'FLYING') {
+            this.strategyInputLocked = false;
+        }
         this.spellState.activeSpell = null;
         this.spellState.phase = null;
         this.spellState.casterPieceId = null;
         this.spellState.sourcePieceId = null;
+        this.spellState.summonedElementalType = null;
+        this.summonVisual = null;
         this.spellMenu.message = msg || "SPELL IS CANCELLED. CHOOSE ANOTHER.";
         this.spellMenu.messageTimer = 0;
     }
@@ -1972,6 +2217,8 @@ class ArchonGame {
         this.spellState.phase = null;
         this.spellState.casterPieceId = null;
         this.spellState.sourcePieceId = null;
+        this.spellState.summonedElementalType = null;
+        this.summonVisual = null;
     }
 
     handleSpellTargetSelect(x, y) {
@@ -1997,6 +2244,35 @@ class ArchonGame {
                 return;
             }
             this.executeSpellTeleport(sourcePiece, x, y);
+            return;
+        }
+
+        if (ss.activeSpell === 'SUMMON_ELEMENTAL' && ss.phase === 'PICK_TARGET') {
+            const stack = this.board[x][y];
+            const enemy = stack.find(p => p.side !== this.currentSide);
+            if (!enemy) {
+                this.cancelSpell();
+                return;
+            }
+
+            const layout = this.boardLayout ?? this.computeBoardLayout();
+            const targetPxX = layout.offsetX + x * layout.tileSize + layout.tileSize / 2;
+            const targetPxY = layout.offsetY + y * layout.tileSize + layout.tileSize / 2;
+
+            if (this.summonVisual) {
+                this.summonVisual.phase = 'FLYING';
+                this.summonVisual.startX = this.summonVisual.x;
+                this.summonVisual.startY = this.summonVisual.y;
+                this.summonVisual.targetX = targetPxX;
+                this.summonVisual.targetY = targetPxY;
+                this.summonVisual.targetGridX = x;
+                this.summonVisual.targetGridY = y;
+                this.summonVisual.flyTimer = 0;
+                this.summonVisual.defenderId = enemy.id;
+            }
+
+            this.strategyInputLocked = true;
+            ss.phase = 'FLYING';
             return;
         }
     }
@@ -2061,10 +2337,84 @@ class ArchonGame {
         this.endTurn();
     }
 
+    executeSpellSummonElemental(enemyPiece, targetX, targetY) {
+        const ss = this.spellState;
+        const elementalType = ss.summonedElementalType;
+        const casterSide = this.currentSide;
+
+        const elementalId = `elemental_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+        const stats = UNIT_STATS[elementalType] ?? {};
+        const baseHP = typeof stats.baseHP === 'number' ? stats.baseHP : 0;
+        const maxHP = typeof stats.maxHP === 'number' ? stats.maxHP : baseHP;
+
+        const elementalPiece = {
+            id: elementalId,
+            type: elementalType,
+            side: casterSide,
+            facing: casterSide === 'dark' ? 'W' : 'E',
+            state: 'IDLE',
+            remainingMove: 0,
+            walkAnimTime: 0,
+            injury: 0,
+            persistentDamage: 0,
+            baseHP,
+            maxHP,
+            currentHP: maxHP,
+            col: targetX,
+            row: targetY
+        };
+
+        this.pieces.push(elementalPiece);
+
+        this.lastSummonedElementalType = elementalType;
+        this.lastSummonedElementalSide = casterSide;
+
+        const captureResult = {
+            type: 'capture',
+            attackerId: elementalId,
+            defenderId: enemyPiece.id,
+            square: { x: targetX, y: targetY }
+        };
+
+        this.resetSpellState();
+        this.selectedPiece = null;
+        this.strategyInputLocked = true;
+        this.lastCaptureAttempt = captureResult;
+        this.startCombat(captureResult);
+
+        this.combat.isSummonedElementalBattle = true;
+        this.combat.summonedElementalPieceId = elementalId;
+        this.combat.summonedElementalType = elementalType;
+    }
+
     updateStrategy(deltaTime) {
         if (this.keys['KeyH']) {
             this.keys['KeyH'] = false;
             this.showHPDebugOverlay = !this.showHPDebugOverlay;
+        }
+
+        if (this.summonVisual?.active) {
+            this.summonVisual.animTime += deltaTime;
+            if (this.summonVisual.phase === 'FLYING') {
+                this.summonVisual.flyTimer += deltaTime;
+                let t = Math.min(1, this.summonVisual.flyTimer / this.summonVisual.flyDuration);
+                t = t * t * (3 - 2 * t);
+                this.summonVisual.x = this.summonVisual.startX + (this.summonVisual.targetX - this.summonVisual.startX) * t;
+                this.summonVisual.y = this.summonVisual.startY + (this.summonVisual.targetY - this.summonVisual.startY) * t;
+
+                if (this.summonVisual.flyTimer >= this.summonVisual.flyDuration) {
+                    const sv = this.summonVisual;
+                    const enemyPiece = this.getPieceById(sv.defenderId);
+                    if (enemyPiece) {
+                        this.summonVisual = null;
+                        this.executeSpellSummonElemental(enemyPiece, sv.targetGridX, sv.targetGridY);
+                    } else {
+                        this.summonVisual = null;
+                        this.cancelSpell();
+                        this.strategyInputLocked = false;
+                    }
+                }
+            }
         }
 
         this.powerPointFlickerTime += deltaTime;
@@ -2159,6 +2509,18 @@ class ArchonGame {
             }
 
             if (gp) {
+                const bDown = gp.buttons[1]?.pressed ?? false;
+                if (bDown && !this.gamepadBPressed) {
+                    this.cancelSpell();
+                }
+                this.gamepadBPressed = bDown;
+            }
+
+            if (this.spellState.phase === 'FLYING') {
+                return;
+            }
+
+            if (gp) {
                 this.boardCursor.moveCooldown = Math.max(0, (this.boardCursor.moveCooldown ?? 0) - deltaTime);
                 if (this.boardCursor.moveCooldown <= 0) {
                     const ax0 = gp.axes[0] ?? 0;
@@ -2176,12 +2538,6 @@ class ArchonGame {
                     this.handleSpellTargetSelect(this.boardCursor.x, this.boardCursor.y);
                 }
                 this.gamepadAPressed = aDown;
-
-                const bDown = gp.buttons[1]?.pressed ?? false;
-                if (bDown && !this.gamepadBPressed) {
-                    this.cancelSpell();
-                }
-                this.gamepadBPressed = bDown;
             }
 
             const fireKey = this.currentSide === 'light' ? 'Space' : 'Enter';
@@ -3172,10 +3528,19 @@ class ArchonGame {
                                 ? this.valkyrieProjectileSprite
                                 : shooterType === 'Djinn'
                                     ? this.djinnProjectileSprite
+                        : shooterType === 'Air Elemental'
+                            ? this.airProjectileSprite
+                        : shooterType === 'Water Elemental'
+                            ? this.waterProjectileSprite
+                        : shooterType === 'Fire Elemental'
+                            ? this.fireProjectileSprite
+                        : shooterType === 'Earth Elemental'
+                            ? this.earthProjectileSprite
                             : null;
 
                 if (sprite?.loaded) {
-                    const preferBlue = (p.fromShapeshifter && p.ownerSide === 'dark');
+                    const isElemental = ['Air Elemental', 'Water Elemental', 'Fire Elemental', 'Earth Elemental'].includes(shooterType);
+                    const preferBlue = (p.fromShapeshifter && p.ownerSide === 'dark') || (isElemental && p.ownerSide === 'dark');
                     const imageOverride = preferBlue ? this.getSpriteImageForPiece(sprite, null, true) : null;
                     this.drawWalkCycleSprite(sprite, p.x, p.y, projDrawSize, p.direction ?? 'E', 0, imageOverride);
                 } else {
@@ -3441,6 +3806,34 @@ class ArchonGame {
             const defaultFacing = piece.side === 'dark' ? 'W' : 'E';
             const imageOverride = preferBlue ? this.getSpriteImageForPiece(this.manticoreSprite, piece, true) : null;
             this.drawWalkCycleSprite(this.manticoreSprite, cx, cy, spriteSize, facing ?? defaultFacing, frameIndex ?? 0, imageOverride);
+            return;
+        }
+        if (renderType === 'Air Elemental' && this.airElementalSprite.loaded) {
+            const defaultFacing = piece.side === 'dark' ? 'W' : 'E';
+            const useBlue = piece?.side === 'dark';
+            const imageOverride = useBlue ? this.getSpriteImageForPiece(this.airElementalSprite, piece, true) : null;
+            this.drawWalkCycleSprite(this.airElementalSprite, cx, cy, spriteSize, facing ?? defaultFacing, frameIndex ?? 0, imageOverride);
+            return;
+        }
+        if (renderType === 'Water Elemental' && this.waterElementalSprite.loaded) {
+            const defaultFacing = piece.side === 'dark' ? 'W' : 'E';
+            const useBlue = piece?.side === 'dark';
+            const imageOverride = useBlue ? this.getSpriteImageForPiece(this.waterElementalSprite, piece, true) : null;
+            this.drawWalkCycleSprite(this.waterElementalSprite, cx, cy, spriteSize, facing ?? defaultFacing, frameIndex ?? 0, imageOverride);
+            return;
+        }
+        if (renderType === 'Fire Elemental' && this.fireElementalSprite.loaded) {
+            const defaultFacing = piece.side === 'dark' ? 'W' : 'E';
+            const useBlue = piece?.side === 'dark';
+            const imageOverride = useBlue ? this.getSpriteImageForPiece(this.fireElementalSprite, piece, true) : null;
+            this.drawWalkCycleSprite(this.fireElementalSprite, cx, cy, spriteSize, facing ?? defaultFacing, frameIndex ?? 0, imageOverride);
+            return;
+        }
+        if (renderType === 'Earth Elemental' && this.earthElementalSprite.loaded) {
+            const defaultFacing = piece.side === 'dark' ? 'W' : 'E';
+            const useBlue = piece?.side === 'dark';
+            const imageOverride = useBlue ? this.getSpriteImageForPiece(this.earthElementalSprite, piece, true) : null;
+            this.drawWalkCycleSprite(this.earthElementalSprite, cx, cy, spriteSize, facing ?? defaultFacing, frameIndex ?? 0, imageOverride);
             return;
         }
 
@@ -4095,6 +4488,75 @@ class ArchonGame {
         );
     }
 
+    loadAirElementalSprite() {
+        const candidates = SPRITE_PATHS['Air Elemental'].walk;
+        this.loadWalkCycleSpriteSheet(this.airElementalSprite, candidates, [4, 3], [8]);
+    }
+
+    loadAirProjectileSprite() {
+        this._loadProjectileSpriteSheet(this.airProjectileSprite, SPRITE_PATHS['Air Elemental'].projectile);
+    }
+
+    loadWaterElementalSprite() {
+        const candidates = SPRITE_PATHS['Water Elemental'].walk;
+        this.loadWalkCycleSpriteSheet(this.waterElementalSprite, candidates, [4, 3], [8]);
+    }
+
+    loadWaterProjectileSprite() {
+        this._loadProjectileSpriteSheet(this.waterProjectileSprite, SPRITE_PATHS['Water Elemental'].projectile);
+    }
+
+    loadFireElementalSprite() {
+        const candidates = SPRITE_PATHS['Fire Elemental'].walk;
+        this.loadWalkCycleSpriteSheet(this.fireElementalSprite, candidates, [4, 3], [8]);
+    }
+
+    loadFireProjectileSprite() {
+        this._loadProjectileSpriteSheet(this.fireProjectileSprite, SPRITE_PATHS['Fire Elemental'].projectile);
+    }
+
+    loadEarthElementalSprite() {
+        const candidates = SPRITE_PATHS['Earth Elemental'].walk;
+        this.loadWalkCycleSpriteSheet(this.earthElementalSprite, candidates, [4, 3], [8]);
+    }
+
+    loadEarthProjectileSprite() {
+        this._loadProjectileSpriteSheet(this.earthProjectileSprite, SPRITE_PATHS['Earth Elemental'].projectile);
+    }
+
+    _loadProjectileSpriteSheet(spriteObj, candidates) {
+        const img = new Image();
+        let candidateIndex = 0;
+        const tryNext = () => {
+            if (candidateIndex >= candidates.length) {
+                spriteObj.loaded = false;
+                return;
+            }
+            img.src = candidates[candidateIndex];
+            candidateIndex++;
+        };
+        img.onload = () => {
+            const frameH = img.height / 8;
+            if (!Number.isInteger(frameH)) {
+                spriteObj.loaded = false;
+                return;
+            }
+            spriteObj.img = img;
+            spriteObj.cols = 1;
+            spriteObj.rows = 8;
+            spriteObj.frameW = img.width;
+            spriteObj.frameH = frameH;
+            spriteObj.loaded = spriteObj.frameW > 0 && spriteObj.frameH > 0;
+            if (spriteObj.loaded) {
+                const blueVersion = this.recolorImageToDarkBlue(img);
+                spriteObj.blueImg = blueVersion;
+                spriteObj.blueLoaded = true;
+            }
+        };
+        img.onerror = () => { tryNext(); };
+        tryNext();
+    }
+
     loadDjinnSprite() {
         // Paths pulled from SPRITE_PATHS configuration block
         const candidates = SPRITE_PATHS.Djinn.walk;
@@ -4397,6 +4859,18 @@ class ArchonGame {
             }
         }
 
+        const isSummonBattle = this.combat.isSummonedElementalBattle === true;
+        const summonedId = this.combat.summonedElementalPieceId;
+
+        if (isSummonBattle && summonedId) {
+            this.removePieceById(summonedId);
+            const stack = this.board[x]?.[y];
+            if (stack) {
+                const idx = stack.findIndex(p => p.id === summonedId);
+                if (idx >= 0) stack.splice(idx, 1);
+            }
+        }
+
         this.combat = null;
         if (canvasRestore) {
             this.setCanvasSize(canvasRestore.width, canvasRestore.height, false);
@@ -4506,6 +4980,29 @@ class ArchonGame {
 
         this.drawPieces(offsetX, offsetY, tileSize);
 
+        if (this.summonVisual?.active) {
+            const sv = this.summonVisual;
+            const spriteMap = {
+                'Air Elemental': this.airElementalSprite,
+                'Water Elemental': this.waterElementalSprite,
+                'Fire Elemental': this.fireElementalSprite,
+                'Earth Elemental': this.earthElementalSprite
+            };
+            const sprite = spriteMap[sv.type];
+            if (sprite?.loaded) {
+                const walkCycleDuration = 0.6;
+                const frameCount = 3;
+                const rawFrame = Math.floor((sv.animTime % walkCycleDuration) / (walkCycleDuration / frameCount));
+                const frameIndex = Math.min(rawFrame, frameCount - 1);
+                const useBlue = sv.side === 'dark';
+                const imageOverride = useBlue ? this.getSpriteImageForPiece(sprite, null, true) : null;
+                this.ctx.save();
+                this.ctx.imageSmoothingEnabled = false;
+                this.drawWalkCycleSprite(sprite, sv.x, sv.y, tileSize, sv.facing, frameIndex, imageOverride);
+                this.ctx.restore();
+            }
+        }
+
         // Debug: show HP info on each piece (toggle with H key)
         if (this.showHPDebugOverlay) {
             this.ctx.save();
@@ -4533,13 +5030,18 @@ class ArchonGame {
             this.ctx.restore();
         }
 
-        // Draw center text
-        this.ctx.fillStyle = '#fff';
-        this.ctx.font = '18px Courier New';
+        // Draw turn indicator (bold double-draw, matching Config screen style)
+        const turnColor = this.currentSide === 'light'
+            ? 'rgba(255, 180, 70, 0.95)'
+            : 'rgba(35, 75, 160, 0.95)';
+        this.ctx.font = this.appleFontLoaded ? '20px AppleII' : '20px monospace';
         this.ctx.textAlign = 'center';
-        this.ctx.fillText('STRATEGY SCREEN (GRID ONLY)', this.width / 2, offsetY - 14);
-
-        this.drawTurnIndicator(offsetX, offsetY);
+        this.ctx.textBaseline = 'bottom';
+        this.ctx.fillStyle = turnColor;
+        const turnLabel = this.currentSide === 'light' ? 'TURN: LIGHT' : 'TURN: DARK';
+        const turnY = offsetY - 10;
+        this.ctx.fillText(turnLabel, this.width / 2, turnY);
+        this.ctx.fillText(turnLabel, this.width / 2 + 1, turnY);
 
         if (this.worldShiftMessage !== null) {
             const t = this.worldShiftTimer;
@@ -4578,14 +5080,19 @@ class ArchonGame {
             this.ctx.fillStyle = '#FFFFFF';
             const smX = this.width / 2;
             const smY = this.height - 60;
+            let line1 = 'SELECT TARGET';
             let line2 = '';
             if (this.spellState.activeSpell === 'TELEPORT' && this.spellState.phase === 'PICK_SOURCE') {
                 line2 = 'TELEPORT: SELECT A FRIENDLY ICON';
             } else if (this.spellState.activeSpell === 'TELEPORT' && this.spellState.phase === 'PICK_DEST') {
                 line2 = 'TELEPORT: SELECT DESTINATION';
+            } else if (this.spellState.activeSpell === 'SUMMON_ELEMENTAL' && this.spellState.phase === 'PICK_TARGET') {
+                const elName = (this.spellState.summonedElementalType ?? 'ELEMENTAL').toUpperCase();
+                line1 = 'A ' + elName + ' APPEARS!';
+                line2 = 'SEND IT TO THE TARGET';
             }
-            this.ctx.fillText('SELECT TARGET', smX, smY);
-            this.ctx.fillText('SELECT TARGET', smX + 1, smY);
+            this.ctx.fillText(line1, smX, smY);
+            this.ctx.fillText(line1, smX + 1, smY);
             this.ctx.fillText(line2, smX, smY + 24);
             this.ctx.fillText(line2, smX + 1, smY + 24);
             this.ctx.restore();
@@ -5907,11 +6414,7 @@ class ArchonGame {
     }
 
     drawTurnIndicator(offsetX, offsetY) {
-        const label = this.currentSide === 'light' ? 'LIGHT' : 'DARK';
-        this.ctx.textAlign = 'left';
-        this.ctx.fillStyle = this.currentSide === 'light' ? 'rgba(255, 180, 70, 0.95)' : 'rgba(100, 180, 255, 0.95)';
-        this.ctx.font = '14px Courier New';
-        this.ctx.fillText(`TURN: ${label}`, offsetX, offsetY - 14);
+        // Now handled inline in drawTestPattern
     }
 
     endTurn() {
