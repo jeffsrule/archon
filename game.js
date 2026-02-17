@@ -13,6 +13,7 @@
 // Strategy Movement Tuning
 // Initial Board Setup
 // Melee Weapon and Icon attachment data
+//Spells
 //
 // Engine logic begins below in the ArchonGame class.
 // ======================================================
