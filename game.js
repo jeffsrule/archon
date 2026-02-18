@@ -604,6 +604,10 @@ class ArchonGame {
         this.splashImage.src = 'assets/splashconfig/Splash Screen.png';
         this.splashStartTime = performance.now();
 
+        this.splashAudio = new Audio('assets/audio/Splash Screen Audio.m4a');
+        this.splashAudio.loop = false;
+        this.splashAudioPlayed = false;
+
         this.handPointerImage = new Image();
         this.handPointerLoaded = false;
         this.handPointerImage.onload = () => {
@@ -1655,6 +1659,15 @@ class ArchonGame {
             }
             if (this.gameState === 'SPLASH') {
                 e.preventDefault();
+                const touch = e.changedTouches[0];
+                if (touch && this.splashThemeTextBox) {
+                    const pos = getTouchCanvasPos(touch);
+                    const b = this.splashThemeTextBox;
+                    if (pos.x >= b.x && pos.x <= b.x + b.width && pos.y >= b.y && pos.y <= b.y + b.height) {
+                        this.playSplashAudio();
+                        return;
+                    }
+                }
                 this.enterStrategyFromSplash();
                 return;
             }
@@ -2042,7 +2055,7 @@ class ArchonGame {
 
     updateSplash(deltaTime) {
         const now = performance.now();
-        if ((now - (this.splashStartTime ?? now)) >= 7000) {
+        if ((now - (this.splashStartTime ?? now)) >= 31000) {
             this.enterStrategyFromSplash();
             return;
         }
@@ -2060,6 +2073,7 @@ class ArchonGame {
 
     enterStrategyFromSplash() {
         if (this.gameState !== 'SPLASH') return;
+        this.stopSplashAudio();
         this.gameState = 'CONFIG';
         this.keys = {};
 
@@ -2071,6 +2085,19 @@ class ArchonGame {
                 order: 'LIGHT_FIRST'
             };
         }
+    }
+
+    playSplashAudio() {
+        if (this.splashAudioPlayed) return;
+        this.splashAudioPlayed = true;
+        this.splashAudio.currentTime = 0;
+        this.splashAudio.play().catch(() => {});
+    }
+
+    stopSplashAudio() {
+        if (!this.splashAudio) return;
+        this.splashAudio.pause();
+        this.splashAudio.currentTime = 0;
     }
 
     updateWin(deltaTime) {
@@ -2251,6 +2278,25 @@ class ArchonGame {
         this.ctx.imageSmoothingEnabled = false;
         this.ctx.drawImage(img, dx, dy, dw, dh);
         this.ctx.imageSmoothingEnabled = prevSmoothing;
+
+        const themeText = 'LISTEN TO ARCHON THEME';
+        const fontSize = 18;
+        this.ctx.save();
+        this.ctx.font = fontSize + 'px AppleII';
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'top';
+        this.ctx.fillStyle = '#FFFFFF';
+        const textY = dy + dh + 12;
+        this.ctx.fillText(themeText, this.width / 2, textY);
+        this.ctx.fillText(themeText, this.width / 2 + 1, textY);
+        const textWidth = this.ctx.measureText(themeText).width;
+        this.splashThemeTextBox = {
+            x: this.width / 2 - textWidth / 2,
+            y: textY,
+            width: textWidth,
+            height: fontSize + 4
+        };
+        this.ctx.restore();
     }
     
     update(deltaTime) {
@@ -6651,6 +6697,18 @@ class ArchonGame {
     handleCanvasMouseDown(e) {
         if (this.gameState === 'WIN') {
             this.restartGame();
+            return;
+        }
+        if (this.gameState === 'SPLASH') {
+            const pos = this.getCanvasCoordsFromMouseEvent(e);
+            if (pos && this.splashThemeTextBox) {
+                const b = this.splashThemeTextBox;
+                if (pos.x >= b.x && pos.x <= b.x + b.width && pos.y >= b.y && pos.y <= b.y + b.height) {
+                    this.playSplashAudio();
+                    return;
+                }
+            }
+            this.enterStrategyFromSplash();
             return;
         }
         if (this.gameState === 'CONFIG') {
