@@ -585,16 +585,8 @@ class ArchonGame {
         this.ctx = this.canvas.getContext('2d');
 
         this.dpr = window.devicePixelRatio || 1;
-        const cssW = this.canvas.clientWidth || this.canvas.width;
-        const cssH = this.canvas.clientHeight || this.canvas.height;
-        this.canvas.width = cssW * this.dpr;
-        this.canvas.height = cssH * this.dpr;
-        this.canvas.style.width = cssW + 'px';
-        this.canvas.style.height = cssH + 'px';
-        this.ctx.scale(this.dpr, this.dpr);
-
-        this.width = cssW;
-        this.height = cssH;
+        this.width = this.canvas.width;
+        this.height = this.canvas.height;
 
         this.appleFontLoaded = false;
         (async () => {
@@ -655,8 +647,8 @@ class ArchonGame {
         this.auraCanvas = document.createElement('canvas');
         this.auraCtx = this.auraCanvas.getContext('2d');
 
-        this.strategyCanvasWidth = this.width;
-        this.strategyCanvasHeight = this.height;
+        this.strategyCanvasWidth = this.canvas.width;
+        this.strategyCanvasHeight = this.canvas.height;
         this.strategyCanvasStyleWidth = this.canvas.style.width;
         this.strategyCanvasStyleHeight = this.canvas.style.height;
         
@@ -1627,8 +1619,8 @@ class ArchonGame {
 
         const getTouchCanvasPos = (touch) => {
             const rect = this.canvas.getBoundingClientRect();
-            const scaleX = this.width / rect.width;
-            const scaleY = this.height / rect.height;
+            const scaleX = this.canvas.width / rect.width;
+            const scaleY = this.canvas.height / rect.height;
             return {
                 x: (touch.clientX - rect.left) * scaleX,
                 y: (touch.clientY - rect.top) * scaleY
@@ -1636,7 +1628,7 @@ class ArchonGame {
         };
 
         const getSideForTouch = (canvasX) => {
-            return canvasX < this.width / 2 ? 'light' : 'dark';
+            return canvasX < this.canvas.width / 2 ? 'light' : 'dark';
         };
 
         const findSideByTouchId = (id) => {
@@ -1711,12 +1703,12 @@ class ArchonGame {
                 e.preventDefault();
                 const touch = e.changedTouches[0];
                 if (!touch) return;
-                const pos = getTouchCanvasPos(touch);
-                const layout = this.boardLayout ?? this.computeBoardLayout();
-                const localX = pos.x - layout.offsetX;
-                const localY = pos.y - layout.offsetY;
 
                 if (TOUCH_DEBUG) {
+                    const pos = getTouchCanvasPos(touch);
+                    const layout = this.boardLayout ?? this.computeBoardLayout();
+                    const localX = pos.x - layout.offsetX;
+                    const localY = pos.y - layout.offsetY;
                     const tx2 = Math.floor(localX / layout.tileSize);
                     const ty2 = Math.floor(localY / layout.tileSize);
                     this.touchDebug.strategyTouch = {
@@ -1733,44 +1725,7 @@ class ArchonGame {
                     this.touchDebug.strategyTouchTimer = 2.0;
                 }
 
-                if (this.strategyInputLocked || this.spellMenu.active) return;
-                if (localX < 0 || localY < 0 || localX >= layout.boardPixelSize || localY >= layout.boardPixelSize) return;
-                const tx = Math.floor(localX / layout.tileSize);
-                const ty = Math.floor(localY / layout.tileSize);
-                if (!this.isInBounds(tx, ty)) return;
-
-                if (this.spellState.activeSpell) {
-                    if (this.spellState.phase === 'REVIVE_SELECT_ICON') {
-                        return;
-                    } else if (this.spellState.phase === 'REVIVE_PLACE') {
-                        this.handleRevivePlacement(tx, ty);
-                    } else {
-                        this.handleSpellTargetSelect(tx, ty);
-                    }
-                    return;
-                }
-
-                const stack = this.board[tx][ty];
-                const friendly = stack.find(p => p.side === this.currentSide);
-                if (friendly) {
-                    const friendlyMovable = stack.find(p => {
-                        if (p.side !== this.currentSide) return false;
-                        const s = this.getUnitStats(p.type);
-                        return s?.moveType && (s.moveRange ?? 0) > 0;
-                    });
-                    const target = friendlyMovable ?? friendly;
-                    const now = performance.now();
-                    if (this.isMage(target) && now - this.lastPointerTapTime < this.pointerDoubleTapWindow) {
-                        this.selectedPiece = target;
-                        if (this.canOpenSpellMenuFor(target)) {
-                            this.openSpellMenu(target);
-                            this.lastPointerTapTime = 0;
-                            return;
-                        }
-                    }
-                    this.lastPointerTapTime = now;
-                    this.selectedPiece = target;
-                }
+                this.handleCanvasMouseDown({ clientX: touch.clientX, clientY: touch.clientY, preventDefault: () => {} });
                 return;
             }
             if (this.gameState !== 'COMBAT') return;
@@ -2234,8 +2189,8 @@ class ArchonGame {
 
     getCanvasCoordsFromMouseEvent(e) {
         const rect = this.canvas.getBoundingClientRect();
-        const scaleX = this.width / rect.width;
-        const scaleY = this.height / rect.height;
+        const scaleX = this.canvas.width / rect.width;
+        const scaleY = this.canvas.height / rect.height;
         return {
             x: (e.clientX - rect.left) * scaleX,
             y: (e.clientY - rect.top) * scaleY
@@ -4299,12 +4254,10 @@ class ArchonGame {
     }
 
     setCanvasSize(width, height, setStyleToPixels) {
-        const dpr = this.dpr || 1;
-        this.canvas.width = width * dpr;
-        this.canvas.height = height * dpr;
-        this.width = width;
-        this.height = height;
-        this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        this.canvas.width = width;
+        this.canvas.height = height;
+        this.width = this.canvas.width;
+        this.height = this.canvas.height;
         if (setStyleToPixels) {
             this.canvas.style.width = `${width}px`;
             this.canvas.style.height = `${height}px`;
@@ -4696,8 +4649,8 @@ class ArchonGame {
         this.resetCombatInputState();
 
         const canvasRestore = {
-            width: this.width,
-            height: this.height,
+            width: this.canvas.width,
+            height: this.canvas.height,
             styleWidth: this.canvas.style.width,
             styleHeight: this.canvas.style.height
         };
@@ -5476,8 +5429,8 @@ class ArchonGame {
             this.setCanvasSize(canvasRestore.width, canvasRestore.height, false);
             this.canvas.style.width = canvasRestore.styleWidth;
             this.canvas.style.height = canvasRestore.styleHeight;
-            this.strategyCanvasWidth = this.width;
-            this.strategyCanvasHeight = this.height;
+            this.strategyCanvasWidth = this.canvas.width;
+            this.strategyCanvasHeight = this.canvas.height;
             this.strategyCanvasStyleWidth = this.canvas.style.width;
             this.strategyCanvasStyleHeight = this.canvas.style.height;
         }
@@ -6880,8 +6833,8 @@ class ArchonGame {
         const layout = this.boardLayout ?? this.computeBoardLayout();
         const rect = this.canvas.getBoundingClientRect();
 
-        const scaleX = this.width / rect.width;
-        const scaleY = this.height / rect.height;
+        const scaleX = this.canvas.width / rect.width;
+        const scaleY = this.canvas.height / rect.height;
         const canvasX = (e.clientX - rect.left) * scaleX;
         const canvasY = (e.clientY - rect.top) * scaleY;
 
