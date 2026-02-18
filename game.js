@@ -737,6 +737,9 @@ class ArchonGame {
         this.combat = null;
         this.showHPDebugOverlay = false;
 
+        this.gameMode = { computerPlaysLight: false, computerPlaysDark: false };
+        this.aiTurnTimer = null;
+
         this.worldShiftMessage = null;
         this.worldShiftTimer = 0;
         this.worldShiftDuration = 4.0;
@@ -2400,6 +2403,10 @@ class ArchonGame {
         this.gameState = 'STRATEGY';
         this.keys = {};
         this.winGamepadAPressed = false;
+
+        clearTimeout(this.aiTurnTimer);
+        this.aiTurnTimer = null;
+        this.scheduleAITurnIfNeeded();
     }
 
     isPowerPointSquare(x, y) {
@@ -2426,12 +2433,18 @@ class ArchonGame {
         if (this.gameState !== 'CONFIG') return;
         this.gameConfig = { ...this.configState };
 
+        const opt = this.gameConfig.playing ?? '';
+        this.gameMode.computerPlaysLight = (opt === 'ONE_PLAYER_COMPUTER_LIGHT');
+        this.gameMode.computerPlaysDark = (opt === 'ONE_PLAYER_COMPUTER_DARK');
+
         this.applyBoardConfigurationForOrder(this.gameConfig.order);
 
         this.boardLayout = null;
         this.gameState = 'STRATEGY';
         this.canvas.style.cursor = 'default';
         this.keys = {};
+
+        this.scheduleAITurnIfNeeded();
     }
 
     getCanvasCoordsFromMouseEvent(e) {
@@ -3266,6 +3279,8 @@ class ArchonGame {
 
             return;
         }
+
+        if (this.isAITurn()) return;
 
         const fireKey = this.currentSide === 'light' ? 'Space' : 'Enter';
         if (this.keys[fireKey]) {
@@ -6950,6 +6965,7 @@ class ArchonGame {
 
         if (this.gameState !== 'STRATEGY') return;
         if (this.strategyInputLocked) return;
+        if (this.isAITurn()) return;
         if (this.spellMenu.active) return;
 
         if (this.spellState.activeSpell) {
@@ -7084,6 +7100,217 @@ class ArchonGame {
             tileSize - inset * 2,
             tileSize - inset * 2
         );
+    }
+
+    // ---- Strategy AI ----
+    //
+    // UNIT_VALUE: used to bias which pieces the AI prefers to send into combat.
+    // HIGH value units receive a small penalty; LOW value units a small bonus.
+    //
+    static UNIT_VALUE = {
+        'Dragon': 'HIGH', 'Phoenix': 'HIGH', 'Djinn': 'HIGH',
+        'Wizard': 'HIGH', 'Sorceress': 'HIGH', 'Shape Shifter': 'HIGH',
+        'Unicorn': 'MEDIUM', 'Basilisk': 'MEDIUM', 'Valkyrie': 'MEDIUM',
+        'Manticore': 'MEDIUM', 'Golem': 'MEDIUM', 'Troll': 'MEDIUM',
+        'Knight': 'LOW', 'Goblin': 'LOW'
+    };
+
+    static ELEMENTAL_TYPES = ['Air Elemental', 'Water Elemental', 'Fire Elemental', 'Earth Elemental'];
+    static PP_GRIDS = ['E1', 'E5', 'E9', 'A5', 'I5'];
+
+    isAITurn(side) {
+        const s = side ?? this.currentSide;
+        if (s === 'light' && this.gameMode.computerPlaysLight) return true;
+        if (s === 'dark' && this.gameMode.computerPlaysDark) return true;
+        return false;
+    }
+
+    scheduleAITurnIfNeeded() {
+        clearTimeout(this.aiTurnTimer);
+        this.aiTurnTimer = null;
+        if (this.gameState !== 'STRATEGY') return;
+        if (!this.isAITurn()) return;
+        this.aiTurnTimer = setTimeout(() => {
+            this.aiTurnTimer = null;
+            if (this.gameState === 'STRATEGY' && this.isAITurn()) {
+                this.performStrategyAITurn();
+            }
+        }, 500);
+    }
+
+    countPowerPointsBySide() {
+        const counts = { light: 0, dark: 0 };
+        for (const grid of ArchonGame.PP_GRIDS) {
+            const { x, y } = this.gridToXY(grid);
+            const stack = this.board[x]?.[y];
+            if (!stack) continue;
+            const occupant = stack.find(p => !ArchonGame.ELEMENTAL_TYPES.includes(p.type));
+            if (occupant?.side === 'light') counts.light++;
+            else if (occupant?.side === 'dark') counts.dark++;
+        }
+        return counts;
+    }
+
+    getPowerPointCoords() {
+        return ArchonGame.PP_GRIDS.map(g => this.gridToXY(g));
+    }
+
+    generateAllLegalMovesForSide(side) {
+        const moves = [];
+        for (const piece of this.pieces) {
+            if (piece.side !== side) continue;
+            if (piece.imprisoned) continue;
+            if (piece.state !== 'IDLE') continue;
+            const stats = this.getUnitStats(piece?.type);
+            if (!stats) continue;
+            const moveType = this.getMoveTypeForPiece(piece);
+            const moveRange = stats.moveRange ?? 0;
+            if (moveRange <= 0) continue;
+            const fromX = piece.col;
+            const fromY = piece.row;
+
+            for (let toX = 0; toX < this.boardSize; toX++) {
+                for (let toY = 0; toY < this.boardSize; toY++) {
+                    if (toX === fromX && toY === fromY) continue;
+
+                    const destStack = this.board[toX][toY];
+                    if (destStack.find(p => p.side === side)) continue;
+
+                    if (moveType === 'WALK') {
+                        const manhattan = Math.abs(toX - fromX) + Math.abs(toY - fromY);
+                        if (manhattan > moveRange) continue;
+                        const path = this.buildKnightPath(fromX, fromY, toX, toY, moveRange);
+                        if (!path) continue;
+                    } else {
+                        const dist = Math.max(Math.abs(toX - fromX), Math.abs(toY - fromY));
+                        if (dist > moveRange) continue;
+                    }
+
+                    moves.push({ piece, fromX, fromY, toX, toY });
+                }
+            }
+        }
+        return moves;
+    }
+
+    scoreMoveAlignmentOnly(move) {
+        const colorCode = this.boardColorCodes?.[move.toY]?.[move.toX] ?? 'D';
+        const entry = HP_BONUS_BY_COLOR[String(colorCode).toUpperCase()];
+        if (!entry) return 0;
+        return move.piece.side === 'light' ? (entry.light ?? 0) : (entry.dark ?? 0);
+    }
+
+    scoreMove(move, ctx) {
+        const CAPTURE_SCORE = 1000;
+        const ATTACKER_HIGH_PENALTY = -50;
+        const ATTACKER_LOW_BONUS = 50;
+        const COLOR_RISK_PENALTY = -150;
+        const COLOR_ADVANTAGE_BONUS = 75;
+        const PP_CAPTURE_5TH = 2000;
+        const PP_CAPTURE_4TH = 500;
+        const PP_BLOCK_OPPONENT_5TH = 800;
+
+        const mySide = move.piece.side;
+        const enemySide = mySide === 'light' ? 'dark' : 'light';
+
+        let captureMultiplier = ctx.captureMultiplier ?? 1;
+        let riskMultiplier = ctx.riskMultiplier ?? 1;
+        let alignMultiplier = ctx.alignMultiplier ?? 1;
+
+        let score = this.scoreMoveAlignmentOnly(move) * alignMultiplier;
+        const destStack = this.board[move.toX][move.toY];
+        const defender = destStack.find(p => p.side !== mySide);
+        if (defender) {
+            score += CAPTURE_SCORE * captureMultiplier;
+            const val = ArchonGame.UNIT_VALUE[move.piece.type];
+            if (val === 'HIGH') score += ATTACKER_HIGH_PENALTY * riskMultiplier;
+            else if (val === 'LOW') score += ATTACKER_LOW_BONUS;
+
+            const colorCode = (this.boardColorCodes?.[move.toY]?.[move.toX] ?? 'D').toUpperCase();
+            const entry = HP_BONUS_BY_COLOR[colorCode];
+            if (entry) {
+                const attackerBonus = entry[mySide] ?? 0;
+                const defenderBonus = entry[enemySide] ?? 0;
+                const alignmentDelta = attackerBonus - defenderBonus;
+                if (alignmentDelta < 0) score += COLOR_RISK_PENALTY * riskMultiplier;
+                else if (alignmentDelta > 0) score += COLOR_ADVANTAGE_BONUS;
+            }
+        }
+
+        const isPP = ctx.ppCoordSet.some(c => c.x === move.toX && c.y === move.toY);
+        if (isPP) {
+            if (defender) {
+                if (ctx.myPP === 4) score += PP_CAPTURE_5TH;
+                else if (ctx.myPP === 3) score += PP_CAPTURE_4TH;
+
+                if (ctx.enemyPP >= 4) score += PP_BLOCK_OPPONENT_5TH;
+            } else {
+                if (ctx.myPP === 4) score += PP_CAPTURE_5TH;
+                else if (ctx.myPP === 3) score += PP_CAPTURE_4TH;
+
+                if (ctx.enemyPP >= 4) score += PP_BLOCK_OPPONENT_5TH;
+            }
+        }
+
+        return score;
+    }
+
+    performStrategyAITurn() {
+        if (this.strategyInputLocked) return;
+        if (this.pieces.some(p => p.state === 'MOVING')) return;
+
+        const moves = this.generateAllLegalMovesForSide(this.currentSide);
+        if (moves.length === 0) return;
+
+        const mySide = this.currentSide;
+        const enemySide = mySide === 'light' ? 'dark' : 'light';
+        const ppCounts = this.countPowerPointsBySide();
+        const ppCoordSet = this.getPowerPointCoords();
+
+        const myIcons = this.pieces.filter(p => p.side === mySide && !ArchonGame.ELEMENTAL_TYPES.includes(p.type));
+        const enemyIcons = this.pieces.filter(p => p.side === enemySide && !ArchonGame.ELEMENTAL_TYPES.includes(p.type));
+
+        let captureMultiplier = 1;
+        let riskMultiplier = 1;
+        let alignMultiplier = 1;
+
+        if (myIcons.length === 1) {
+            captureMultiplier = 0.3;
+            riskMultiplier = 2.5;
+            alignMultiplier = 2.0;
+        }
+        if (enemyIcons.length === 1) {
+            captureMultiplier = 1.5;
+            riskMultiplier = 0.5;
+        }
+
+        const ctx = {
+            myPP: ppCounts[mySide],
+            enemyPP: ppCounts[enemySide],
+            ppCoordSet,
+            captureMultiplier,
+            riskMultiplier,
+            alignMultiplier
+        };
+
+        let bestScore = -Infinity;
+        for (const m of moves) {
+            const s = this.scoreMove(m, ctx);
+            if (s > bestScore) bestScore = s;
+        }
+
+        const tied = moves.filter(m => this.scoreMove(m, ctx) === bestScore);
+        const chosen = tied[Math.floor(Math.random() * tied.length)];
+
+        this.selectedPiece = chosen.piece;
+        const result = this.tryStartMove(chosen.piece, chosen.toX, chosen.toY);
+        if (!result) {
+            this.selectedPiece = null;
+            return;
+        }
+        if (result.type === 'capture') {
+            this.lastCaptureAttempt = result;
+        }
     }
 
     tryStartMove(piece, destX, destY) {
@@ -7358,6 +7585,8 @@ class ArchonGame {
             this.gameState = 'WIN';
             this.winningSide = winner;
             this.startWinTheme();
+        } else {
+            this.scheduleAITurnIfNeeded();
         }
     }
 
