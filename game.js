@@ -684,6 +684,8 @@ class ArchonGame {
         this.combatGamepadAPressed = false;
         this.splashGamepadAPressed = false;
         this.configGamepadAPressed = false;
+        this.winGamepadAPressed = false;
+        this.winningSide = null;
         this.configPointerX = 400;
         this.configPointerY = 300;
 
@@ -1541,6 +1543,11 @@ class ArchonGame {
     setupEventListeners() {
         // Keyboard events
         window.addEventListener('keydown', (e) => {
+            if (this.gameState === 'WIN') {
+                this.restartGame();
+                e.preventDefault();
+                return;
+            }
             if (this.gameState === 'SPLASH') {
                 this.enterStrategyFromSplash();
                 e.preventDefault();
@@ -1641,52 +1648,33 @@ class ArchonGame {
         };
 
         this.canvas.addEventListener('touchstart', (e) => {
-            if (this.gameState === 'STRATEGY') {
+            if (this.gameState === 'WIN') {
                 e.preventDefault();
-                if (this.strategyInputLocked || this.spellMenu.active) return;
+                this.restartGame();
+                return;
+            }
+            if (this.gameState === 'SPLASH') {
+                e.preventDefault();
+                this.enterStrategyFromSplash();
+                return;
+            }
+            if (this.gameState === 'CONFIG') {
+                e.preventDefault();
                 const touch = e.changedTouches[0];
                 if (!touch) return;
                 const pos = getTouchCanvasPos(touch);
-                const layout = this.boardLayout ?? this.computeBoardLayout();
-                const localX = pos.x - layout.offsetX;
-                const localY = pos.y - layout.offsetY;
-                if (localX < 0 || localY < 0 || localX >= layout.boardPixelSize || localY >= layout.boardPixelSize) return;
-                const tx = Math.floor(localX / layout.tileSize);
-                const ty = Math.floor(localY / layout.tileSize);
-                if (!this.isInBounds(tx, ty)) return;
-
-                if (this.spellState.activeSpell) {
-                    if (this.spellState.phase === 'REVIVE_SELECT_ICON') {
-                        return;
-                    } else if (this.spellState.phase === 'REVIVE_PLACE') {
-                        this.handleRevivePlacement(tx, ty);
-                    } else {
-                        this.handleSpellTargetSelect(tx, ty);
-                    }
-                    return;
-                }
-
-                const stack = this.board[tx][ty];
-                const friendly = stack.find(p => p.side === this.currentSide);
-                if (friendly) {
-                    const friendlyMovable = stack.find(p => {
-                        if (p.side !== this.currentSide) return false;
-                        const s = this.getUnitStats(p.type);
-                        return s?.moveType && (s.moveRange ?? 0) > 0;
-                    });
-                    const target = friendlyMovable ?? friendly;
-                    const now = performance.now();
-                    if (this.isMage(target) && now - this.lastPointerTapTime < this.pointerDoubleTapWindow) {
-                        this.selectedPiece = target;
-                        if (this.canOpenSpellMenuFor(target)) {
-                            this.openSpellMenu(target);
-                            this.lastPointerTapTime = 0;
-                            return;
-                        }
-                    }
-                    this.lastPointerTapTime = now;
-                    this.selectedPiece = target;
-                }
+                this.mouseX = pos.x;
+                this.mouseY = pos.y;
+                this.configPointerX = pos.x;
+                this.configPointerY = pos.y;
+                this.handleCanvasMouseDown({ clientX: touch.clientX, clientY: touch.clientY, preventDefault: () => {} });
+                return;
+            }
+            if (this.gameState === 'STRATEGY') {
+                e.preventDefault();
+                const touch = e.changedTouches[0];
+                if (!touch) return;
+                this.handleCanvasMouseDown({ clientX: touch.clientX, clientY: touch.clientY, preventDefault: () => {} });
                 return;
             }
             if (this.gameState !== 'COMBAT') return;
@@ -1716,6 +1704,17 @@ class ArchonGame {
         }, { passive: false });
 
         this.canvas.addEventListener('touchmove', (e) => {
+            if (this.gameState === 'CONFIG') {
+                e.preventDefault();
+                const touch = e.changedTouches[0];
+                if (!touch) return;
+                const pos = getTouchCanvasPos(touch);
+                this.mouseX = pos.x;
+                this.mouseY = pos.y;
+                this.configPointerX = pos.x;
+                this.configPointerY = pos.y;
+                return;
+            }
             if (this.gameState !== 'COMBAT') return;
             if (this.combat?.introState && this.combat.introState !== 'ACTIVE') return;
             e.preventDefault();
@@ -2074,6 +2073,127 @@ class ArchonGame {
         }
     }
 
+    updateWin(deltaTime) {
+        const gpads = navigator.getGamepads ? navigator.getGamepads() : [];
+        const gp = gpads[0] ?? gpads[1] ?? gpads[2] ?? gpads[3];
+        if (gp) {
+            const aDown = gp.buttons[0]?.pressed ?? false;
+            if (aDown && !this.winGamepadAPressed) {
+                this.restartGame();
+                return;
+            }
+            this.winGamepadAPressed = aDown;
+        }
+    }
+
+    renderWin() {
+        this.ctx.save();
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+        this.ctx.fillRect(0, 0, this.width, this.height);
+
+        this.ctx.font = '28px AppleII';
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
+        this.ctx.fillStyle = '#FFFFFF';
+
+        const side = (this.winningSide ?? 'light').toUpperCase();
+        const line1 = 'THE ' + side + ' SIDE WINS';
+        const line2 = 'PRESS ANY KEY TO PLAY AGAIN';
+
+        const cy = this.height / 2;
+        this.ctx.fillText(line1, this.width / 2, cy - 20);
+        this.ctx.fillText(line1, this.width / 2 + 1, cy - 20);
+        this.ctx.font = '20px AppleII';
+        this.ctx.fillText(line2, this.width / 2, cy + 20);
+        this.ctx.fillText(line2, this.width / 2 + 1, cy + 20);
+        this.ctx.restore();
+    }
+
+    checkWinConditions() {
+        const ELEMENTAL_TYPES = ['Air Elemental', 'Water Elemental', 'Fire Elemental', 'Earth Elemental'];
+        const livingLight = this.pieces.filter(p => p.side === 'light' && !ELEMENTAL_TYPES.includes(p.type));
+        const livingDark = this.pieces.filter(p => p.side === 'dark' && !ELEMENTAL_TYPES.includes(p.type));
+
+        if (livingDark.length === 0) return 'light';
+        if (livingLight.length === 0) return 'dark';
+
+        const ppGrids = ['E1', 'E5', 'E9', 'A5', 'I5'];
+        let lightPP = 0;
+        let darkPP = 0;
+        for (const grid of ppGrids) {
+            const { x, y } = this.gridToXY(grid);
+            const stack = this.board[x]?.[y];
+            if (!stack) continue;
+            const occupant = stack.find(p => !ELEMENTAL_TYPES.includes(p.type));
+            if (occupant?.side === 'light') lightPP++;
+            else if (occupant?.side === 'dark') darkPP++;
+        }
+        if (lightPP === 5) return 'light';
+        if (darkPP === 5) return 'dark';
+
+        if (livingDark.length === 1 && livingDark[0].imprisoned) return 'light';
+        if (livingLight.length === 1 && livingLight[0].imprisoned) return 'dark';
+
+        return null;
+    }
+
+    restartGame() {
+        this.pieces = [
+            ...this.createInitialPiecesLight(),
+            ...this.createInitialPiecesDark()
+        ];
+        this.board = this.createEmptyBoard();
+        this.placePiecesOnBoard();
+        this.deadPieces = [];
+
+        this.usedSpells = { light: new Set(), dark: new Set() };
+        this.spellState = {
+            activeSpell: null,
+            phase: null,
+            casterPieceId: null,
+            sourcePieceId: null,
+            summonedElementalType: null
+        };
+        this.spellMenu.active = false;
+        this.spellMenu.message = null;
+        this.spellMenu.messageLine2 = null;
+        this.spellMenu.messageFadeIn = null;
+        this.spellMenu.messageTimer = 0;
+        this.summonVisual = null;
+        this.reviveState = null;
+        this.lastSummonedElementalType = null;
+        this.lastSummonedElementalSide = null;
+
+        this.selectedPiece = null;
+        this.lastCaptureAttempt = null;
+        this.combat = null;
+        this.strategyInputLocked = false;
+        this.turnCounter = 0;
+
+        this.worldShiftMessage = null;
+        this.worldShiftTimer = 0;
+        this.squareFadeActive = false;
+        this.squareFadeFrom = null;
+        this.squareFadeTo = null;
+
+        this.illegalFlash = null;
+        this.boardCursor = { x: 4, y: 4, moveCooldown: 0 };
+
+        const order = this.gameConfig?.order ?? 'LIGHT_FIRST';
+        this.applyBoardConfigurationForOrder(order);
+        this.boardLayout = null;
+
+        this.winningSide = null;
+        this.gameState = 'STRATEGY';
+        this.keys = {};
+        this.winGamepadAPressed = false;
+    }
+
+    isPowerPointSquare(x, y) {
+        const grid = this.xyToGridPos(x, y);
+        return grid === 'A5' || grid === 'I5' || grid === 'E1' || grid === 'E5' || grid === 'E9';
+    }
+
     enterStrategyFromConfig() {
         if (this.gameState !== 'CONFIG') return;
         this.gameState = 'STRATEGY';
@@ -2134,6 +2254,10 @@ class ArchonGame {
     }
     
     update(deltaTime) {
+        if (this.gameState === 'WIN') {
+            this.updateWin(deltaTime);
+            return;
+        }
         if (this.gameState === 'SPLASH') {
             this.updateSplash(deltaTime);
         } else if (this.gameState === 'CONFIG') {
@@ -2351,6 +2475,11 @@ class ArchonGame {
         if (!this.isInBounds(x, y)) return;
         const ss = this.spellState;
 
+        if (this.isPowerPointSquare(x, y)) {
+            this.cancelSpell();
+            return;
+        }
+
         if (ss.activeSpell === 'TELEPORT' && ss.phase === 'PICK_SOURCE') {
             const stack = this.board[x][y];
             const friendly = stack.find(p => p.side === this.currentSide && p.state === 'IDLE');
@@ -2504,6 +2633,11 @@ class ArchonGame {
     handleRevivePlacement(x, y) {
         const rs = this.reviveState;
         if (!rs || !rs.chosenDeadPiece) return;
+
+        if (this.isPowerPointSquare(x, y)) {
+            this.cancelSpell();
+            return;
+        }
 
         const isCharmed = rs.charmedSquares.some(sq => sq.x === x && sq.y === y);
         if (!isCharmed) {
@@ -3732,6 +3866,9 @@ class ArchonGame {
             this.renderConfig();
         } else if (this.gameState === 'COMBAT') {
             this.renderCombat();
+        } else if (this.gameState === 'WIN') {
+            this.drawTestPattern();
+            this.renderWin();
         } else {
             // Draw a simple test pattern to verify rendering works
             this.drawTestPattern();
@@ -6512,6 +6649,10 @@ class ArchonGame {
     // --- Selection + movement (Strategy Screen)
 
     handleCanvasMouseDown(e) {
+        if (this.gameState === 'WIN') {
+            this.restartGame();
+            return;
+        }
         if (this.gameState === 'CONFIG') {
             const pos = this.getCanvasCoordsFromMouseEvent(e);
             if (!pos) return;
@@ -6938,6 +7079,12 @@ class ArchonGame {
         const rotateAfterSide = firstMover === 'light' ? 'dark' : 'light';
         if (prevSide === rotateAfterSide) {
             this.rotateBoardColors();
+        }
+
+        const winner = this.checkWinConditions();
+        if (winner) {
+            this.gameState = 'WIN';
+            this.winningSide = winner;
         }
     }
 
