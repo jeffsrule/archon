@@ -3609,9 +3609,23 @@ class ArchonGame {
         const result = { dx: 0, dy: 0, fire: false, aimDx: 0, aimDy: 0 };
         if (!actor || !enemyActor || !piece) return result;
 
+        const profile = this.aiProfile;
+
         const stats = this.getUnitStats(piece.type, piece.id);
         if (!stats) return result;
         const combatType = this.getCombatType(piece.type, piece.id);
+
+        const riskTol = profile.riskTolerance ?? 0.85;
+        const tieRand = profile.tieBreakRandomness ?? 0.25;
+        const safetyBias = profile.highValueSafetyBias ?? 1.4;
+        const aggrBias = profile.lowValueAggressionBias ?? 1.2;
+
+        const aggressionBias = aggrBias / safetyBias;
+        const retreatBias = safetyBias / Math.max(0.5, riskTol);
+        const aimPrecision = 1.0 - tieRand;
+        const reactionDelay = tieRand * 0.4;
+        const randomnessFactor = tieRand;
+        const commitThreshold = 0.35 * riskTol;
 
         const toEnemyX = enemyActor.x - actor.x;
         const toEnemyY = enemyActor.y - actor.y;
@@ -3621,25 +3635,36 @@ class ArchonGame {
 
         const selfHP = actor.currentHP ?? 0;
         const enemyHP = enemyActor.currentHP ?? 1;
+        const enemyMaxHP = enemyActor.maxHP ?? enemyHP;
         const hpRatio = selfHP / Math.max(0.1, enemyHP);
+
+        const enemyHPFraction = enemyHP / Math.max(1, enemyMaxHP);
+        const endgameCommit = enemyHPFraction < commitThreshold;
 
         const half = spriteSize / 2;
         const meleeRange = spriteSize * 1.2;
         const isAttacking = actor.isAttacking;
         const onCooldown = (actor.attackCooldownLeft ?? 0) > 0;
 
+        const now = performance.now();
+        if (!actor._aiLastFireTime) actor._aiLastFireTime = 0;
+        const sinceLastFire = (now - actor._aiLastFireTime) / 1000;
+        const reactionReady = sinceLastFire >= reactionDelay;
+
         if (combatType === 'MELEE') {
+            const meleeRetreatHP = 0.7 * retreatBias;
             if (dist > meleeRange) {
-                const speedMult = hpRatio < 0.7 ? 1.0 : 0.85;
-                result.dx = ndx * speedMult;
-                result.dy = ndy * speedMult;
+                const speedMult = (hpRatio < meleeRetreatHP || endgameCommit) ? 1.0 : (0.85 * aggressionBias);
+                result.dx = ndx * Math.min(1, speedMult);
+                result.dy = ndy * Math.min(1, speedMult);
             } else {
                 result.dx = 0;
                 result.dy = 0;
-                if (!isAttacking && !onCooldown) {
+                if (!isAttacking && !onCooldown && reactionReady) {
                     result.fire = true;
                     result.aimDx = ndx;
                     result.aimDy = ndy;
+                    actor._aiLastFireTime = now;
                 }
             }
         } else if (combatType === 'AURA') {
@@ -3651,23 +3676,31 @@ class ArchonGame {
                 const orbitAngle = (this.combat.auraTime ?? 0) * 1.5;
                 const perpX = -ndy;
                 const perpY = ndx;
-                result.dx = ndx * 0.3 + perpX * Math.sin(orbitAngle) * 0.7;
-                result.dy = ndy * 0.3 + perpY * Math.sin(orbitAngle) * 0.7;
+                const orbitWeight = endgameCommit ? 0.2 : 0.7;
+                const closeWeight = endgameCommit ? 0.8 : 0.3;
+                result.dx = ndx * closeWeight + perpX * Math.sin(orbitAngle) * orbitWeight;
+                result.dy = ndy * closeWeight + perpY * Math.sin(orbitAngle) * orbitWeight;
             }
-            if (dist < auraEngageRange && !isAttacking && !onCooldown) {
+            if (dist < auraEngageRange && !isAttacking && !onCooldown && reactionReady) {
                 result.fire = true;
                 result.aimDx = ndx;
                 result.aimDy = ndy;
+                actor._aiLastFireTime = now;
             }
         } else if (combatType === 'PROJECTILE') {
             const idealMin = spriteSize * 3.0;
             const idealMax = spriteSize * 5.5;
-            const tooClose = spriteSize * 1.8;
+            const tooClose = spriteSize * 1.8 * retreatBias;
             const maxShootDist = spriteSize * 7.0;
 
-            if (dist < tooClose) {
+            const shouldRetreat = !endgameCommit && dist < tooClose;
+
+            if (shouldRetreat) {
                 result.dx = -ndx;
                 result.dy = -ndy;
+            } else if (endgameCommit && dist > meleeRange) {
+                result.dx = ndx * 0.9;
+                result.dy = ndy * 0.9;
             } else if (dist > idealMax) {
                 result.dx = ndx * 0.8;
                 result.dy = ndy * 0.8;
@@ -3685,15 +3718,24 @@ class ArchonGame {
                 if (actor.y > arena.ay + arena.arenaH - arenaMargin) result.dy -= 0.4;
             }
 
-            const canShoot = dist >= tooClose && dist <= maxShootDist;
+            const canShoot = dist >= (endgameCommit ? meleeRange : tooClose) && dist <= maxShootDist;
             const lineBlocked = this.isCombatLineBlocked(actor.x, actor.y, enemyActor.x, enemyActor.y);
-            const pointBlankDanger = dist < idealMin && hpRatio < 0.5;
+            const losOverride = lineBlocked && Math.random() < randomnessFactor * 0.3;
+            const effectiveLOS = !lineBlocked || losOverride;
+            const pointBlankDanger = !endgameCommit && dist < idealMin && hpRatio < (0.5 * aggressionBias);
 
-            if (canShoot && !lineBlocked && !pointBlankDanger && !isAttacking && !onCooldown) {
+            if (canShoot && effectiveLOS && !pointBlankDanger && !isAttacking && !onCooldown && reactionReady) {
                 result.fire = true;
                 result.aimDx = ndx;
                 result.aimDy = ndy;
+                actor._aiLastFireTime = now;
             }
+        }
+
+        if (randomnessFactor > 0 && (result.dx !== 0 || result.dy !== 0)) {
+            const jitter = randomnessFactor * 0.5;
+            result.dx += (Math.random() - 0.5) * jitter;
+            result.dy += (Math.random() - 0.5) * jitter;
         }
 
         const len = Math.hypot(result.dx, result.dy);
@@ -3703,6 +3745,37 @@ class ArchonGame {
         }
 
         return result;
+    }
+
+    startVictorySlide(result) {
+        if (!this.combat) { this.resolveCombat(result); return; }
+        if (result.mutualDestruction) { this.resolveCombat(result); return; }
+
+        const winnerSide = (result.winnerId === this.combat.lightPieceId) ? 'light' : 'dark';
+        const winnerActor = winnerSide === 'light' ? this.combat.lightActor : this.combat.darkActor;
+        const loserActor = winnerSide === 'light' ? this.combat.darkActor : this.combat.lightActor;
+
+        if (!winnerActor) { this.resolveCombat(result); return; }
+
+        if (loserActor) {
+            loserActor.isMoving = false;
+            loserActor.isAttacking = false;
+            loserActor.currentHP = 0;
+        }
+
+        const toX = this.combat.contestedX;
+        const toY = this.combat.contestedY;
+
+        this.combat.victorySlide = {
+            winnerSide,
+            fromX: winnerActor.x,
+            fromY: winnerActor.y,
+            toX,
+            toY,
+            timer: 0,
+            duration: 0.6,
+            result
+        };
     }
 
     updateCombat(deltaTime) {
@@ -3716,8 +3789,6 @@ class ArchonGame {
             this.combat.introTimer = (this.combat.introTimer ?? 0) + deltaTime;
             const lightActor = this.combat.lightActor;
             const darkActor = this.combat.darkActor;
-            const centerX = arena.ax + Math.floor(arena.arenaW / 2);
-            const centerY = arena.ay + Math.floor(arena.arenaH * 0.55);
 
             if (this.combat.introState === 'CENTER') {
                 if (this.combat.introTimer >= this.combat.introCenterDuration) {
@@ -3747,6 +3818,32 @@ class ArchonGame {
                 }
             }
 
+            return;
+        }
+
+        if (this.combat.victorySlide) {
+            const vs = this.combat.victorySlide;
+            vs.timer = (vs.timer ?? 0) + deltaTime;
+            const t = Math.min(1, vs.timer / vs.duration);
+            const winnerActor = vs.winnerSide === 'light' ? this.combat.lightActor : this.combat.darkActor;
+            if (winnerActor) {
+                winnerActor.x = vs.fromX + (vs.toX - vs.fromX) * t;
+                winnerActor.y = vs.fromY + (vs.toY - vs.fromY) * t;
+                winnerActor.isMoving = t < 1;
+                winnerActor.isAttacking = false;
+                if (t < 1) {
+                    winnerActor.walkAnimTime = (winnerActor.walkAnimTime ?? 0) + deltaTime;
+                    winnerActor.facing = this.directionFromDelta(vs.toX - vs.fromX, vs.toY - vs.fromY);
+                } else {
+                    winnerActor.isMoving = false;
+                    winnerActor.walkAnimTime = 0;
+                }
+            }
+            if (t >= 1) {
+                const result = vs.result;
+                this.combat.victorySlide = null;
+                this.resolveCombat(result);
+            }
             return;
         }
 
@@ -4460,7 +4557,7 @@ class ArchonGame {
             if (lightCombatType === 'MELEE') {
                 const darkKilled = tryApplyAttackDamage(lightActor, lightPiece, darkActor, darkPiece);
                 if (darkKilled) {
-                    this.resolveCombat({ winnerId: this.combat.lightPieceId, loserId: this.combat.darkPieceId });
+                    this.startVictorySlide({ winnerId: this.combat.lightPieceId, loserId: this.combat.darkPieceId });
                     return;
                 }
             }
@@ -4468,7 +4565,7 @@ class ArchonGame {
             if (darkCombatType === 'MELEE') {
                 const lightKilled = tryApplyAttackDamage(darkActor, darkPiece, lightActor, lightPiece);
                 if (lightKilled) {
-                    this.resolveCombat({ winnerId: this.combat.darkPieceId, loserId: this.combat.lightPieceId });
+                    this.startVictorySlide({ winnerId: this.combat.darkPieceId, loserId: this.combat.lightPieceId });
                     return;
                 }
             }
@@ -4476,11 +4573,11 @@ class ArchonGame {
             const lightHP = lightActor.currentHP ?? 0;
             const darkHP = darkActor.currentHP ?? 0;
             if (lightHP <= 0) {
-                this.resolveCombat({ winnerId: this.combat.darkPieceId, loserId: this.combat.lightPieceId });
+                this.startVictorySlide({ winnerId: this.combat.darkPieceId, loserId: this.combat.lightPieceId });
                 return;
             }
             if (darkHP <= 0) {
-                this.resolveCombat({ winnerId: this.combat.lightPieceId, loserId: this.combat.darkPieceId });
+                this.startVictorySlide({ winnerId: this.combat.lightPieceId, loserId: this.combat.darkPieceId });
                 return;
             }
         }
@@ -4492,17 +4589,17 @@ class ArchonGame {
 
         if (this.keys['Digit1']) {
             this.keys['Digit1'] = false;
-            this.resolveCombat({ winnerId: this.combat.lightPieceId, loserId: this.combat.darkPieceId });
+            this.startVictorySlide({ winnerId: this.combat.lightPieceId, loserId: this.combat.darkPieceId });
             return;
         }
         if (this.keys['Digit2']) {
             this.keys['Digit2'] = false;
-            this.resolveCombat({ winnerId: this.combat.darkPieceId, loserId: this.combat.lightPieceId });
+            this.startVictorySlide({ winnerId: this.combat.darkPieceId, loserId: this.combat.lightPieceId });
             return;
         }
         if (this.keys['Digit3']) {
             this.keys['Digit3'] = false;
-            this.resolveCombat({ mutualDestruction: true });
+            this.startVictorySlide({ mutualDestruction: true });
             return;
         }
     }
@@ -5297,8 +5394,9 @@ class ArchonGame {
         const darkHP = getActorHPFromPiece(darkPiece);
 
 
-        const centerX = arena.ax + Math.floor(arena.arenaW / 2);
-        const centerY = arena.ay + Math.floor(arena.arenaH * 0.55);
+        const margin = 0.08;
+        const contestedX = arena.ax + Math.floor(arena.arenaW * (margin + (1 - 2 * margin) * (capture.square.x / (this.boardSize - 1))));
+        const contestedY = arena.ay + Math.floor(arena.arenaH * (margin + (1 - 2 * margin) * (capture.square.y / (this.boardSize - 1))));
 
         this.combat = {
             attackerId: capture.attackerId,
@@ -5310,6 +5408,8 @@ class ArchonGame {
             darkOriginalType,
             darkCopiedType,
             square: capture.square,
+            contestedX,
+            contestedY,
             canvasRestore,
             arena,
             spriteSize,
@@ -5325,8 +5425,8 @@ class ArchonGame {
             introLightStartY: midY - 20,
             introDarkStartX: rightX,
             introDarkStartY: midY + 20,
-            lightActor: { x: centerX - 10, y: centerY - 20, facing: 'E', side: 'light', maxHP: lightHP.maxHP ?? 0, currentHP: lightHP.currentHP ?? 0, walkAnimTime: 0, isMoving: false, isAttacking: false, attackTimeLeft: 0, didDamageThisAttack: false, attackCooldownLeft: 0, auraState: 'idle', auraTimer: 0, auraFrameIndex: 0 },
-            darkActor: { x: centerX + 10, y: centerY + 20, facing: 'W', side: 'dark', maxHP: darkHP.maxHP ?? 0, currentHP: darkHP.currentHP ?? 0, walkAnimTime: 0, isMoving: false, isAttacking: false, attackTimeLeft: 0, didDamageThisAttack: false, attackCooldownLeft: 0, auraState: 'idle', auraTimer: 0, auraFrameIndex: 0 }
+            lightActor: { x: contestedX, y: contestedY, facing: 'E', side: 'light', maxHP: lightHP.maxHP ?? 0, currentHP: lightHP.currentHP ?? 0, walkAnimTime: 0, isMoving: false, isAttacking: false, attackTimeLeft: 0, didDamageThisAttack: false, attackCooldownLeft: 0, auraState: 'idle', auraTimer: 0, auraFrameIndex: 0 },
+            darkActor: { x: contestedX, y: contestedY, facing: 'W', side: 'dark', maxHP: darkHP.maxHP ?? 0, currentHP: darkHP.currentHP ?? 0, walkAnimTime: 0, isMoving: false, isAttacking: false, attackTimeLeft: 0, didDamageThisAttack: false, attackCooldownLeft: 0, auraState: 'idle', auraTimer: 0, auraFrameIndex: 0 }
         };
 
         this.generateCombatObstacles();
