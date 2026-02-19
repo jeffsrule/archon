@@ -13,7 +13,7 @@
 // Strategy Movement Tuning
 // Initial Board Setup
 // Melee Weapon and Icon attachment data
-//Spells
+// Spells
 //
 // Engine logic begins below in the ArchonGame class.
 // ======================================================
@@ -604,8 +604,108 @@ const MOVE_SFX_BY_UNIT = {
 
 const TURN_CHANGE_SFX = 'assets/audio/Turn Change.m4a';
 
+const TELEPORT_SFX = 'assets/audio/Wizard Teleport Strategy.m4a';
+
 const ONE_SHOT_SFX = {
-    'turnChange': TURN_CHANGE_SFX
+    'turnChange': TURN_CHANGE_SFX,
+    'teleport': TELEPORT_SFX
+};
+
+// ---- AI Profiles ----
+//
+// Each profile defines tuning weights for the Strategy AI heuristic.
+// The AI reads these at scoring time; swapping profiles changes behavior
+// without touching engine logic.
+//
+const AI_PROFILES = {
+    ORIGINAL: {
+        name: 'ORIGINAL',
+        captureWeight: 110,
+        earlyGameCaptureMultiplier: 0.6,
+        earlyGameRiskPenaltyMultiplier: 1.5,
+        permanentAlignmentWeight: 1.8,
+        rotatingAlignmentWeight: 1.0,
+        earlyGameAlignmentBias: 2.0,
+        misalignedMoveBonus: 60,
+        misalignedStayPenalty: 35,
+        centralControl: 10,
+        edgePenalty: 4,
+        powerPointWeight: 45,
+        winPowerPointWeight: 140,
+        riskTolerance: 0.85,
+        highValueSafetyBias: 1.4,
+        lowValueAggressionBias: 1.2,
+        eliminateEnemyBias: 70,
+        mageThreatBias: 100,
+        mageDefenseRadius: 2,
+        tieBreakRandomness: 0.25
+    },
+    EASY: {
+        name: 'EASY',
+        captureWeight: 80,
+        earlyGameCaptureMultiplier: 0.5,
+        earlyGameRiskPenaltyMultiplier: 1.2,
+        permanentAlignmentWeight: 1.2,
+        rotatingAlignmentWeight: 0.8,
+        earlyGameAlignmentBias: 1.5,
+        misalignedMoveBonus: 40,
+        misalignedStayPenalty: 20,
+        centralControl: 6,
+        edgePenalty: 2,
+        powerPointWeight: 30,
+        winPowerPointWeight: 100,
+        riskTolerance: 1.1,
+        highValueSafetyBias: 1.2,
+        lowValueAggressionBias: 1.0,
+        eliminateEnemyBias: 40,
+        mageThreatBias: 60,
+        mageDefenseRadius: 2,
+        tieBreakRandomness: 0.4
+    },
+    HARD: {
+        name: 'HARD',
+        captureWeight: 125,
+        earlyGameCaptureMultiplier: 0.6,
+        earlyGameRiskPenaltyMultiplier: 1.8,
+        permanentAlignmentWeight: 2.2,
+        rotatingAlignmentWeight: 1.3,
+        earlyGameAlignmentBias: 2.2,
+        misalignedMoveBonus: 75,
+        misalignedStayPenalty: 45,
+        centralControl: 12,
+        edgePenalty: 5,
+        powerPointWeight: 60,
+        winPowerPointWeight: 180,
+        riskTolerance: 0.7,
+        highValueSafetyBias: 1.8,
+        lowValueAggressionBias: 1.3,
+        eliminateEnemyBias: 90,
+        mageThreatBias: 150,
+        mageDefenseRadius: 3,
+        tieBreakRandomness: 0.15
+    },
+    AGGRESSIVE: {
+        name: 'AGGRESSIVE',
+        captureWeight: 160,
+        earlyGameCaptureMultiplier: 1.0,
+        earlyGameRiskPenaltyMultiplier: 1.0,
+        permanentAlignmentWeight: 1.0,
+        rotatingAlignmentWeight: 0.9,
+        earlyGameAlignmentBias: 1.2,
+        misalignedMoveBonus: 25,
+        misalignedStayPenalty: 10,
+        centralControl: 5,
+        edgePenalty: 1,
+        powerPointWeight: 25,
+        winPowerPointWeight: 100,
+        riskTolerance: 1.4,
+        highValueSafetyBias: 1.0,
+        lowValueAggressionBias: 1.5,
+        eliminateEnemyBias: 120,
+        mageThreatBias: 200,
+        mageDefenseRadius: 2,
+        tieBreakRandomness: 0.3
+    }
 };
 
 class ArchonGame {
@@ -739,6 +839,8 @@ class ArchonGame {
 
         this.gameMode = { computerPlaysLight: false, computerPlaysDark: false };
         this.aiTurnTimer = null;
+        this.aiProfile = AI_PROFILES.ORIGINAL;
+        this.consecutiveNonAttackMoves = 0;
 
         this.worldShiftMessage = null;
         this.worldShiftTimer = 0;
@@ -812,6 +914,7 @@ class ArchonGame {
         this.summonVisual = null;
         this.deadPieces = [];
         this.reviveState = null;
+        this.aiSpellVisual = null;
         
         // Input state
         this.keys = {};
@@ -1622,7 +1725,7 @@ class ArchonGame {
         // Keyboard events
         window.addEventListener('keydown', (e) => {
             if (this.gameState === 'WIN') {
-                this.restartGame();
+                this.returnToConfig();
                 e.preventDefault();
                 return;
             }
@@ -1927,7 +2030,8 @@ class ArchonGame {
             this.configState = {
                 playing: 'TWO_PLAYERS_BOTH_ON_KEYBOARD',
                 sound: 'SOUND_ON',
-                order: 'LIGHT_FIRST'
+                order: 'LIGHT_FIRST',
+                difficulty: 'ORIGINAL'
             };
         }
 
@@ -2025,6 +2129,20 @@ class ArchonGame {
         y += lineH;
 
         drawSelectableText('playing', 'TWO_PLAYERS_BOTH_ON_KEYBOARD', 'TWO PLAYERS, BOTH ON KEYBOARD', marginLeft + 20, y);
+
+        // AI DIFFICULTY (right column, aligned with PLAYING OPTIONS)
+        const diffX = this.width / 2 + 140;
+        let diffY = y - (lineH * 4);
+        drawBoldText('AI DIFFICULTY:', diffX, diffY, '#fff');
+        diffY += lineH;
+        drawSelectableText('difficulty', 'ORIGINAL', 'ORIGINAL', diffX + 20, diffY);
+        diffY += lineH;
+        drawSelectableText('difficulty', 'EASY', 'EASY', diffX + 20, diffY);
+        diffY += lineH;
+        drawSelectableText('difficulty', 'HARD', 'HARD', diffX + 20, diffY);
+        diffY += lineH;
+        drawSelectableText('difficulty', 'AGGRESSIVE', 'AGGRESSIVE', diffX + 20, diffY);
+
         y += playingToSoundGap;
 
         // SOUND
@@ -2121,6 +2239,7 @@ class ArchonGame {
                 if (z.type === 'playing') this.configState.playing = z.value;
                 if (z.type === 'sound') this.configState.sound = z.value;
                 if (z.type === 'order') this.configState.order = z.value;
+                if (z.type === 'difficulty') this.configState.difficulty = z.value;
                 break;
             }
         }
@@ -2157,7 +2276,8 @@ class ArchonGame {
             this.configState = {
                 playing: 'TWO_PLAYERS_BOTH_ON_KEYBOARD',
                 sound: 'SOUND_ON',
-                order: 'LIGHT_FIRST'
+                order: 'LIGHT_FIRST',
+                difficulty: 'ORIGINAL'
             };
         }
     }
@@ -2293,11 +2413,23 @@ class ArchonGame {
         if (gp) {
             const aDown = gp.buttons[0]?.pressed ?? false;
             if (aDown && !this.winGamepadAPressed) {
-                this.restartGame();
+                this.returnToConfig();
                 return;
             }
             this.winGamepadAPressed = aDown;
         }
+    }
+
+    returnToConfig() {
+        this.stopWinTheme();
+        this.stopMovementAudio();
+        clearTimeout(this.aiTurnTimer);
+        this.aiTurnTimer = null;
+        this.winningSide = null;
+        this.gameState = 'CONFIG';
+        this.canvas.style.cursor = 'none';
+        this.keys = {};
+        this.winGamepadAPressed = false;
     }
 
     renderWin() {
@@ -2379,12 +2511,14 @@ class ArchonGame {
         this.reviveState = null;
         this.lastSummonedElementalType = null;
         this.lastSummonedElementalSide = null;
+        this.aiSpellVisual = null;
 
         this.selectedPiece = null;
         this.lastCaptureAttempt = null;
         this.combat = null;
         this.strategyInputLocked = false;
         this.turnCounter = 0;
+        this.consecutiveNonAttackMoves = 0;
 
         this.worldShiftMessage = null;
         this.worldShiftTimer = 0;
@@ -2403,6 +2537,9 @@ class ArchonGame {
         this.gameState = 'STRATEGY';
         this.keys = {};
         this.winGamepadAPressed = false;
+
+        const diff = this.gameConfig?.difficulty;
+        this.aiProfile = (diff && AI_PROFILES[diff]) ? AI_PROFILES[diff] : AI_PROFILES.ORIGINAL;
 
         clearTimeout(this.aiTurnTimer);
         this.aiTurnTimer = null;
@@ -2426,6 +2563,8 @@ class ArchonGame {
         const opt = this.gameConfig?.playing ?? 'TWO_PLAYERS_BOTH_ON_KEYBOARD';
         if (opt === 'TWO_PLAYERS_DARK_ON_KEYBOARD') return side === 'light';
         if (opt === 'TWO_PLAYERS_LIGHT_ON_KEYBOARD') return side === 'dark';
+        if (opt === 'ONE_PLAYER_COMPUTER_LIGHT') return side === 'dark';
+        if (opt === 'ONE_PLAYER_COMPUTER_DARK') return side === 'light';
         return false;
     }
 
@@ -2433,16 +2572,67 @@ class ArchonGame {
         if (this.gameState !== 'CONFIG') return;
         this.gameConfig = { ...this.configState };
 
+        const diff = this.gameConfig.difficulty;
+        this.aiProfile = (diff && AI_PROFILES[diff]) ? AI_PROFILES[diff] : AI_PROFILES.ORIGINAL;
+
         const opt = this.gameConfig.playing ?? '';
         this.gameMode.computerPlaysLight = (opt === 'ONE_PLAYER_COMPUTER_LIGHT');
         this.gameMode.computerPlaysDark = (opt === 'ONE_PLAYER_COMPUTER_DARK');
 
-        this.applyBoardConfigurationForOrder(this.gameConfig.order);
+        this.stopMovementAudio();
+        clearTimeout(this.aiTurnTimer);
+        this.aiTurnTimer = null;
+        this.consecutiveNonAttackMoves = 0;
 
+        this.pieces = [
+            ...this.createInitialPiecesLight(),
+            ...this.createInitialPiecesDark()
+        ];
+        this.board = this.createEmptyBoard();
+        this.placePiecesOnBoard();
+        this.deadPieces = [];
+
+        this.usedSpells = { light: new Set(), dark: new Set() };
+        this.spellState = {
+            activeSpell: null,
+            phase: null,
+            casterPieceId: null,
+            sourcePieceId: null,
+            summonedElementalType: null
+        };
+        this.spellMenu.active = false;
+        this.spellMenu.message = null;
+        this.spellMenu.messageLine2 = null;
+        this.spellMenu.messageFadeIn = null;
+        this.spellMenu.messageTimer = 0;
+        this.summonVisual = null;
+        this.reviveState = null;
+        this.lastSummonedElementalType = null;
+        this.lastSummonedElementalSide = null;
+        this.aiSpellVisual = null;
+
+        this.selectedPiece = null;
+        this.lastCaptureAttempt = null;
+        this.combat = null;
+        this.strategyInputLocked = false;
+        this.turnCounter = 0;
+
+        this.worldShiftMessage = null;
+        this.worldShiftTimer = 0;
+        this.squareFadeActive = false;
+        this.squareFadeFrom = null;
+        this.squareFadeTo = null;
+
+        this.illegalFlash = null;
+        this.boardCursor = { x: 4, y: 4, moveCooldown: 0 };
+        this.winningSide = null;
+
+        this.applyBoardConfigurationForOrder(this.gameConfig.order);
         this.boardLayout = null;
         this.gameState = 'STRATEGY';
         this.canvas.style.cursor = 'default';
         this.keys = {};
+        this.winGamepadAPressed = false;
 
         this.scheduleAITurnIfNeeded();
     }
@@ -2842,6 +3032,18 @@ class ArchonGame {
             this.spellMenu.messageTimer = 0;
             this.spellMenu.messageDuration = 3.0;
             this.selectedPiece = null;
+
+            const winner = this.checkWinConditions();
+            if (winner) {
+                this.stopMovementAudio();
+                clearTimeout(this.aiTurnTimer);
+                this.aiTurnTimer = null;
+                this.strategyInputLocked = true;
+                this.gameState = 'WIN';
+                this.winningSide = winner;
+                this.startWinTheme();
+                return;
+            }
             this.endTurn();
             return;
         }
@@ -2970,6 +3172,10 @@ class ArchonGame {
 
         if (!destStack.includes(sourcePiece)) destStack.push(sourcePiece);
 
+        if (this.gameConfig?.sound !== 'SOUND_OFF') {
+            this.playOneShot('teleport');
+        }
+
         this.applyPowerPointHP(sourcePiece);
         this.usedSpells[this.currentSide].add('TELEPORT');
         this.resetSpellState();
@@ -3013,7 +3219,8 @@ class ArchonGame {
             maxHP,
             currentHP: maxHP,
             col: targetX,
-            row: targetY
+            row: targetY,
+            isSummoned: true
         };
 
         this.pieces.push(elementalPiece);
@@ -3041,6 +3248,11 @@ class ArchonGame {
     }
 
     updateStrategy(deltaTime) {
+        if (this.aiSpellVisual) {
+            this.updateAISpellVisual(deltaTime);
+            return;
+        }
+
         if (this.keys['KeyH']) {
             this.keys['KeyH'] = false;
             this.showHPDebugOverlay = !this.showHPDebugOverlay;
@@ -3363,6 +3575,136 @@ class ArchonGame {
         }
     }
 
+    isComputerCombatSide(side) {
+        if (side === 'light') return !!this.gameMode.computerPlaysLight;
+        if (side === 'dark') return !!this.gameMode.computerPlaysDark;
+        return false;
+    }
+
+    isCombatLineBlocked(ax, ay, bx, by) {
+        const obstacles = this.combat?.obstacles ?? [];
+        const dx = bx - ax;
+        const dy = by - ay;
+        const dist = Math.hypot(dx, dy);
+        if (dist < 1) return false;
+        const ndx = dx / dist;
+        const ndy = dy / dist;
+        const step = 12;
+        for (let t = step; t < dist; t += step) {
+            const px = ax + ndx * t;
+            const py = ay + ndy * t;
+            for (const obs of obstacles) {
+                if (obs.type !== 'solid') continue;
+                const hw = obs.width / 2;
+                const hh = obs.height / 2;
+                if (px >= obs.x - hw && px <= obs.x + hw && py >= obs.y - hh && py <= obs.y + hh) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    getCombatAIInput(side, actor, piece, enemyActor, enemyPiece, deltaTime, arena, spriteSize) {
+        const result = { dx: 0, dy: 0, fire: false, aimDx: 0, aimDy: 0 };
+        if (!actor || !enemyActor || !piece) return result;
+
+        const stats = this.getUnitStats(piece.type, piece.id);
+        if (!stats) return result;
+        const combatType = this.getCombatType(piece.type, piece.id);
+
+        const toEnemyX = enemyActor.x - actor.x;
+        const toEnemyY = enemyActor.y - actor.y;
+        const dist = Math.hypot(toEnemyX, toEnemyY) || 1;
+        const ndx = toEnemyX / dist;
+        const ndy = toEnemyY / dist;
+
+        const selfHP = actor.currentHP ?? 0;
+        const enemyHP = enemyActor.currentHP ?? 1;
+        const hpRatio = selfHP / Math.max(0.1, enemyHP);
+
+        const half = spriteSize / 2;
+        const meleeRange = spriteSize * 1.2;
+        const isAttacking = actor.isAttacking;
+        const onCooldown = (actor.attackCooldownLeft ?? 0) > 0;
+
+        if (combatType === 'MELEE') {
+            if (dist > meleeRange) {
+                const speedMult = hpRatio < 0.7 ? 1.0 : 0.85;
+                result.dx = ndx * speedMult;
+                result.dy = ndy * speedMult;
+            } else {
+                result.dx = 0;
+                result.dy = 0;
+                if (!isAttacking && !onCooldown) {
+                    result.fire = true;
+                    result.aimDx = ndx;
+                    result.aimDy = ndy;
+                }
+            }
+        } else if (combatType === 'AURA') {
+            const auraEngageRange = spriteSize * 2.0;
+            if (dist > auraEngageRange) {
+                result.dx = ndx;
+                result.dy = ndy;
+            } else {
+                const orbitAngle = (this.combat.auraTime ?? 0) * 1.5;
+                const perpX = -ndy;
+                const perpY = ndx;
+                result.dx = ndx * 0.3 + perpX * Math.sin(orbitAngle) * 0.7;
+                result.dy = ndy * 0.3 + perpY * Math.sin(orbitAngle) * 0.7;
+            }
+            if (dist < auraEngageRange && !isAttacking && !onCooldown) {
+                result.fire = true;
+                result.aimDx = ndx;
+                result.aimDy = ndy;
+            }
+        } else if (combatType === 'PROJECTILE') {
+            const idealMin = spriteSize * 3.0;
+            const idealMax = spriteSize * 5.5;
+            const tooClose = spriteSize * 1.8;
+            const maxShootDist = spriteSize * 7.0;
+
+            if (dist < tooClose) {
+                result.dx = -ndx;
+                result.dy = -ndy;
+            } else if (dist > idealMax) {
+                result.dx = ndx * 0.8;
+                result.dy = ndy * 0.8;
+            } else {
+                const perpX = -ndy;
+                const perpY = ndx;
+                const strafeDir = ((actor.x + actor.y) % 2 < 1) ? 1 : -1;
+                result.dx = perpX * strafeDir * 0.6;
+                result.dy = perpY * strafeDir * 0.6;
+
+                const arenaMargin = half + 20;
+                if (actor.x < arena.ax + arenaMargin) result.dx += 0.4;
+                if (actor.x > arena.ax + arena.arenaW - arenaMargin) result.dx -= 0.4;
+                if (actor.y < arena.ay + arenaMargin) result.dy += 0.4;
+                if (actor.y > arena.ay + arena.arenaH - arenaMargin) result.dy -= 0.4;
+            }
+
+            const canShoot = dist >= tooClose && dist <= maxShootDist;
+            const lineBlocked = this.isCombatLineBlocked(actor.x, actor.y, enemyActor.x, enemyActor.y);
+            const pointBlankDanger = dist < idealMin && hpRatio < 0.5;
+
+            if (canShoot && !lineBlocked && !pointBlankDanger && !isAttacking && !onCooldown) {
+                result.fire = true;
+                result.aimDx = ndx;
+                result.aimDy = ndy;
+            }
+        }
+
+        const len = Math.hypot(result.dx, result.dy);
+        if (len > 1) {
+            result.dx /= len;
+            result.dy /= len;
+        }
+
+        return result;
+    }
+
     updateCombat(deltaTime) {
         if (!this.combat) return;
 
@@ -3437,6 +3779,11 @@ class ArchonGame {
 
         const lightCombatType = this.getCombatType(lightPiece?.type, lightPiece?.id);
         const darkCombatType = this.getCombatType(darkPiece?.type, darkPiece?.id);
+
+        const lightIsAI = this.isComputerCombatSide('light');
+        const darkIsAI = this.isComputerCombatSide('dark');
+        const aiLight = lightIsAI ? this.getCombatAIInput('light', lightActor, lightPiece, darkActor, darkPiece, deltaTime, arena, spriteSize) : null;
+        const aiDark = darkIsAI ? this.getCombatAIInput('dark', darkActor, darkPiece, lightActor, lightPiece, deltaTime, arena, spriteSize) : null;
 
         if (!this.combat.projectiles) this.combat.projectiles = [];
 
@@ -3643,7 +3990,39 @@ class ArchonGame {
             });
         };
 
-        if (this.keys['Space']) {
+        if (aiLight?.fire && lightActor) {
+            lightActor.facing = this.directionFromDelta(aiLight.aimDx, aiLight.aimDy);
+            if (lightCombatType === 'PROJECTILE') {
+                trySpawnProjectile(lightActor, 'light');
+            } else if (lightCombatType === 'AURA') {
+                const lightEffectiveType = this.getEffectiveCombatTypeForPiece(lightPiece);
+                if (lightEffectiveType === 'Phoenix') {
+                    startPhoenixExplosion(lightActor);
+                } else {
+                    startAuraAttack(lightActor);
+                }
+            } else {
+                startAttack(lightActor, lightPiece);
+            }
+        }
+
+        if (aiDark?.fire && darkActor) {
+            darkActor.facing = this.directionFromDelta(aiDark.aimDx, aiDark.aimDy);
+            if (darkCombatType === 'PROJECTILE') {
+                trySpawnProjectile(darkActor, 'dark');
+            } else if (darkCombatType === 'AURA') {
+                const darkEffectiveType = this.getEffectiveCombatTypeForPiece(darkPiece);
+                if (darkEffectiveType === 'Phoenix') {
+                    startPhoenixExplosion(darkActor);
+                } else {
+                    startAuraAttack(darkActor);
+                }
+            } else {
+                startAttack(darkActor, darkPiece);
+            }
+        }
+
+        if (this.keys['Space'] && !lightIsAI) {
             this.keys['Space'] = false;
             if (lightCombatType === 'PROJECTILE') {
                 trySpawnProjectile(lightActor, 'light');
@@ -3659,7 +4038,7 @@ class ArchonGame {
             }
         }
 
-        if (this.keys['Enter'] || this.keys['NumpadEnter']) {
+        if ((this.keys['Enter'] || this.keys['NumpadEnter']) && !darkIsAI) {
             this.keys['Enter'] = false;
             this.keys['NumpadEnter'] = false;
             if (darkCombatType === 'PROJECTILE') {
@@ -3849,24 +4228,29 @@ class ArchonGame {
             let dx = 0;
             let dy = 0;
             if (!shouldBlockMovementWhileAttacking(l, lightPiece)) {
-                if (this.keys['KeyA']) dx -= 1;
-                if (this.keys['KeyD']) dx += 1;
-                if (this.keys['KeyW']) dy -= 1;
-                if (this.keys['KeyS']) dy += 1;
-                if (this.doesSideUseGamepad('light')) {
-                    dx += gpStickX;
-                    dy += gpStickY;
-                }
-                if (!this.touchState.light.active) {
-                    this.touchState.light.snappedDx = 0;
-                    this.touchState.light.snappedDy = 0;
-                }
-                if (this.touchState.light.active) {
-                    const tl = this.touchState.light;
-                    if (tl.snappedDx !== 0 || tl.snappedDy !== 0) {
-                        const slen = Math.hypot(tl.snappedDx, tl.snappedDy) || 1;
-                        dx += tl.snappedDx / slen;
-                        dy += tl.snappedDy / slen;
+                if (lightIsAI && aiLight) {
+                    dx = aiLight.dx;
+                    dy = aiLight.dy;
+                } else {
+                    if (this.keys['KeyA']) dx -= 1;
+                    if (this.keys['KeyD']) dx += 1;
+                    if (this.keys['KeyW']) dy -= 1;
+                    if (this.keys['KeyS']) dy += 1;
+                    if (this.doesSideUseGamepad('light')) {
+                        dx += gpStickX;
+                        dy += gpStickY;
+                    }
+                    if (!this.touchState.light.active) {
+                        this.touchState.light.snappedDx = 0;
+                        this.touchState.light.snappedDy = 0;
+                    }
+                    if (this.touchState.light.active) {
+                        const tl = this.touchState.light;
+                        if (tl.snappedDx !== 0 || tl.snappedDy !== 0) {
+                            const slen = Math.hypot(tl.snappedDx, tl.snappedDy) || 1;
+                            dx += tl.snappedDx / slen;
+                            dy += tl.snappedDy / slen;
+                        }
                     }
                 }
             }
@@ -3878,24 +4262,29 @@ class ArchonGame {
             let dx = 0;
             let dy = 0;
             if (!shouldBlockMovementWhileAttacking(d, darkPiece)) {
-                if (this.keys['ArrowLeft']) dx -= 1;
-                if (this.keys['ArrowRight']) dx += 1;
-                if (this.keys['ArrowUp']) dy -= 1;
-                if (this.keys['ArrowDown']) dy += 1;
-                if (this.doesSideUseGamepad('dark')) {
-                    dx += gpStickX;
-                    dy += gpStickY;
-                }
-                if (!this.touchState.dark.active) {
-                    this.touchState.dark.snappedDx = 0;
-                    this.touchState.dark.snappedDy = 0;
-                }
-                if (this.touchState.dark.active) {
-                    const td = this.touchState.dark;
-                    if (td.snappedDx !== 0 || td.snappedDy !== 0) {
-                        const slen = Math.hypot(td.snappedDx, td.snappedDy) || 1;
-                        dx += td.snappedDx / slen;
-                        dy += td.snappedDy / slen;
+                if (darkIsAI && aiDark) {
+                    dx = aiDark.dx;
+                    dy = aiDark.dy;
+                } else {
+                    if (this.keys['ArrowLeft']) dx -= 1;
+                    if (this.keys['ArrowRight']) dx += 1;
+                    if (this.keys['ArrowUp']) dy -= 1;
+                    if (this.keys['ArrowDown']) dy += 1;
+                    if (this.doesSideUseGamepad('dark')) {
+                        dx += gpStickX;
+                        dy += gpStickY;
+                    }
+                    if (!this.touchState.dark.active) {
+                        this.touchState.dark.snappedDx = 0;
+                        this.touchState.dark.snappedDy = 0;
+                    }
+                    if (this.touchState.dark.active) {
+                        const td = this.touchState.dark;
+                        if (td.snappedDx !== 0 || td.snappedDy !== 0) {
+                            const slen = Math.hypot(td.snappedDx, td.snappedDy) || 1;
+                            dx += td.snappedDx / slen;
+                            dy += td.snappedDy / slen;
+                        }
                     }
                 }
             }
@@ -4135,6 +4524,7 @@ class ArchonGame {
         } else {
             // Draw a simple test pattern to verify rendering works
             this.drawTestPattern();
+            if (this.aiSpellVisual) this.renderAISpellVisual();
         }
         
         // Draw gamepad debug info
@@ -4844,6 +5234,7 @@ class ArchonGame {
 
     startCombat(capture) {
         this.stopMovementAudio();
+        this.consecutiveNonAttackMoves = 0;
         this.gameState = 'COMBAT';
         this.resetCombatInputState();
 
@@ -5611,16 +6002,13 @@ class ArchonGame {
             }
         }
 
-        const isSummonBattle = this.combat.isSummonedElementalBattle === true;
-        const summonedId = this.combat.summonedElementalPieceId;
-
-        if (isSummonBattle && summonedId) {
-            this.removePieceById(summonedId);
-            const stack = this.board[x]?.[y];
-            if (stack) {
-                const idx = stack.findIndex(p => p.id === summonedId);
-                if (idx >= 0) stack.splice(idx, 1);
-            }
+        const attackerPiece = this.getPieceById(this.combat.attackerId);
+        const defenderPiece = this.getPieceById(this.combat.defenderId);
+        if (attackerPiece?.isSummoned) {
+            this.removePieceById(attackerPiece.id);
+        }
+        if (defenderPiece?.isSummoned) {
+            this.removePieceById(defenderPiece.id);
         }
 
         this.combat = null;
@@ -5893,7 +6281,7 @@ class ArchonGame {
         this.ctx.fillText(turnLabel, this.width / 2, turnY);
         this.ctx.fillText(turnLabel, this.width / 2 + 1, turnY);
 
-        if (this.worldShiftMessage !== null) {
+        if (this.worldShiftMessage !== null && !this.hasHighPriorityBottomText()) {
             const t = this.worldShiftTimer;
             const total = this.worldShiftDuration;
             const fade = this.worldShiftFadeDuration;
@@ -6009,6 +6397,14 @@ class ArchonGame {
             }
             this.ctx.restore();
         }
+    }
+
+    hasHighPriorityBottomText() {
+        if (this.spellState.activeSpell) return true;
+        if (this.spellMenu.active) return true;
+        if (this.spellMenu.message !== null) return true;
+        if (this.aiSpellVisual) return true;
+        return false;
     }
 
     drawPowerPoints() {
@@ -6197,13 +6593,18 @@ class ArchonGame {
         }
         this.worldShiftTimer = 0;
 
-        for (const piece of this.pieces) {
-            if (!piece.imprisoned) continue;
-            const colorCode = this.boardColorCodes?.[piece.row]?.[piece.col];
-            if (piece.side === 'light' && colorCode === 'A') {
-                piece.imprisoned = false;
-            } else if (piece.side === 'dark' && colorCode === 'F') {
-                piece.imprisoned = false;
+        if (this.gameState !== 'WIN') {
+            const ELEMENTAL_TYPES_SET = new Set(['Air Elemental', 'Water Elemental', 'Fire Elemental', 'Earth Elemental']);
+            for (const piece of this.pieces) {
+                if (!piece.imprisoned) continue;
+                const sameTeam = this.pieces.filter(p => p.side === piece.side && !ELEMENTAL_TYPES_SET.has(p.type));
+                if (sameTeam.length === 1 && sameTeam[0].id === piece.id) continue;
+                const colorCode = this.boardColorCodes?.[piece.row]?.[piece.col];
+                if (piece.side === 'light' && colorCode === 'A') {
+                    piece.imprisoned = false;
+                } else if (piece.side === 'dark' && colorCode === 'F') {
+                    piece.imprisoned = false;
+                }
             }
         }
     }
@@ -6950,13 +7351,15 @@ class ArchonGame {
                     this.configState = {
                         playing: 'TWO_PLAYERS_BOTH_ON_KEYBOARD',
                         sound: 'SOUND_ON',
-                        order: 'LIGHT_FIRST'
+                        order: 'LIGHT_FIRST',
+                        difficulty: 'ORIGINAL'
                     };
                 }
 
                 if (z.type === 'playing') this.configState.playing = z.value;
                 if (z.type === 'sound') this.configState.sound = z.value;
                 if (z.type === 'order') this.configState.order = z.value;
+                if (z.type === 'difficulty') this.configState.difficulty = z.value;
                 return;
             }
 
@@ -7193,38 +7596,93 @@ class ArchonGame {
         return moves;
     }
 
-    scoreMoveAlignmentOnly(move) {
-        const colorCode = this.boardColorCodes?.[move.toY]?.[move.toX] ?? 'D';
+    static UNIT_TIER = {
+        'Dragon': 3, 'Djinn': 3, 'Phoenix': 3, 'Wizard': 3, 'Sorceress': 3,
+        'Shape Shifter': 3, 'Golem': 2, 'Troll': 2, 'Unicorn': 2, 'Basilisk': 2,
+        'Valkyrie': 2, 'Manticore': 2, 'Banshee': 2, 'Archer': 1, 'Knight': 1, 'Goblin': 1
+    };
+
+    static HIGH_VALUE_UNITS = new Set(['Dragon', 'Basilisk', 'Unicorn', 'Phoenix', 'Djinn']);
+
+    getEffectiveHP(piece, col, row) {
+        const stats = UNIT_STATS[piece.type];
+        if (!stats) return 0;
+        const baseHP = stats.baseHP ?? 0;
+        const colorCode = (this.boardColorCodes?.[row]?.[col] ?? 'D').toUpperCase();
+        const bonus = this.getSquareHPBonus(piece, colorCode);
+        const damage = piece.persistentDamage ?? 0;
+        return baseHP + bonus - damage;
+    }
+
+    getShapeshifterEffectiveHP(targetType, side, col, row) {
+        const stats = UNIT_STATS[targetType];
+        if (!stats) return 0;
+        const colorCode = (this.boardColorCodes?.[row]?.[col] ?? 'D').toUpperCase();
         const entry = HP_BONUS_BY_COLOR[String(colorCode).toUpperCase()];
-        if (!entry) return 0;
-        return move.piece.side === 'light' ? (entry.light ?? 0) : (entry.dark ?? 0);
+        const bonus = entry ? (side === 'light' ? (entry.light ?? 0) : (entry.dark ?? 0)) : 0;
+        return stats.baseHP + bonus;
+    }
+
+    isSquareMisaligned(col, row, side) {
+        const isRotating = !!(this.boardRotates?.[row]?.[col]);
+        if (isRotating) return false;
+        const colorCode = (this.boardColorCodes?.[row]?.[col] ?? 'D').toUpperCase();
+        if (side === 'light') return 'DEF'.includes(colorCode);
+        if (side === 'dark') return 'ABC'.includes(colorCode);
+        return false;
+    }
+
+    scoreMoveAlignment(move) {
+        const colorCode = (this.boardColorCodes?.[move.toY]?.[move.toX] ?? 'D').toUpperCase();
+        const entry = HP_BONUS_BY_COLOR[colorCode];
+        if (!entry) return { raw: 0, isRotating: false };
+        const raw = move.piece.side === 'light' ? (entry.light ?? 0) : (entry.dark ?? 0);
+        const isRotating = !!(this.boardRotates?.[move.toY]?.[move.toX]);
+        return { raw, isRotating };
     }
 
     scoreMove(move, ctx) {
-        const CAPTURE_SCORE = 1000;
-        const ATTACKER_HIGH_PENALTY = -50;
-        const ATTACKER_LOW_BONUS = 50;
-        const COLOR_RISK_PENALTY = -150;
-        const COLOR_ADVANTAGE_BONUS = 75;
-        const PP_CAPTURE_5TH = 2000;
-        const PP_CAPTURE_4TH = 500;
-        const PP_BLOCK_OPPONENT_5TH = 800;
-
+        const p = this.aiProfile;
         const mySide = move.piece.side;
         const enemySide = mySide === 'light' ? 'dark' : 'light';
 
-        let captureMultiplier = ctx.captureMultiplier ?? 1;
-        let riskMultiplier = ctx.riskMultiplier ?? 1;
-        let alignMultiplier = ctx.alignMultiplier ?? 1;
+        let score = 0;
 
-        let score = this.scoreMoveAlignmentOnly(move) * alignMultiplier;
+        const align = this.scoreMoveAlignment(move);
+        const alignWeight = align.isRotating
+            ? p.rotatingAlignmentWeight
+            : p.permanentAlignmentWeight * ctx.alignMultiplier;
+        score += align.raw * alignWeight;
+
+        const center = Math.floor(this.boardSize / 2);
+        const distFromCenter = Math.abs(move.toX - center) + Math.abs(move.toY - center);
+        score += Math.max(0, (center * 2 - distFromCenter)) * p.centralControl;
+
+        const edgeX = (move.toX === 0 || move.toX === this.boardSize - 1) ? 1 : 0;
+        const edgeY = (move.toY === 0 || move.toY === this.boardSize - 1) ? 1 : 0;
+        score -= (edgeX + edgeY) * p.edgePenalty;
+
+        if (ctx.earlyGame) {
+            const fromMisaligned = this.isSquareMisaligned(move.fromX, move.fromY, mySide);
+            const toMisaligned = this.isSquareMisaligned(move.toX, move.toY, mySide);
+
+            if (fromMisaligned && !toMisaligned) {
+                score += p.misalignedMoveBonus;
+            } else if (fromMisaligned && toMisaligned) {
+                score += p.misalignedMoveBonus * 0.3;
+            } else if (!fromMisaligned && toMisaligned) {
+                score -= p.misalignedStayPenalty;
+            }
+        }
+
         const destStack = this.board[move.toX][move.toY];
-        const defender = destStack.find(p => p.side !== mySide);
+        const defender = destStack.find(pp => pp.side !== mySide);
         if (defender) {
-            score += CAPTURE_SCORE * captureMultiplier;
+            score += p.captureWeight * ctx.captureMultiplier;
+
             const val = ArchonGame.UNIT_VALUE[move.piece.type];
-            if (val === 'HIGH') score += ATTACKER_HIGH_PENALTY * riskMultiplier;
-            else if (val === 'LOW') score += ATTACKER_LOW_BONUS;
+            if (val === 'HIGH') score -= p.highValueSafetyBias * ctx.riskMultiplier;
+            else if (val === 'LOW') score += p.lowValueAggressionBias;
 
             const colorCode = (this.boardColorCodes?.[move.toY]?.[move.toX] ?? 'D').toUpperCase();
             const entry = HP_BONUS_BY_COLOR[colorCode];
@@ -7232,76 +7690,605 @@ class ArchonGame {
                 const attackerBonus = entry[mySide] ?? 0;
                 const defenderBonus = entry[enemySide] ?? 0;
                 const alignmentDelta = attackerBonus - defenderBonus;
-                if (alignmentDelta < 0) score += COLOR_RISK_PENALTY * riskMultiplier;
-                else if (alignmentDelta > 0) score += COLOR_ADVANTAGE_BONUS;
+                if (alignmentDelta < 0) {
+                    score -= Math.abs(alignmentDelta) * (1 / p.riskTolerance) * ctx.riskMultiplier;
+
+                    if (ctx.earlyGame && attackerBonus < defenderBonus) {
+                        score -= Math.abs(alignmentDelta) * p.earlyGameRiskPenaltyMultiplier;
+                    }
+                }
+                else if (alignmentDelta > 0) score += alignmentDelta * p.riskTolerance;
+            }
+
+            if (this.isMage(defender)) {
+                score += p.mageThreatBias;
+            }
+
+            if (ctx.enemyIcons === 1) {
+                score += p.eliminateEnemyBias;
             }
         }
 
         const isPP = ctx.ppCoordSet.some(c => c.x === move.toX && c.y === move.toY);
         if (isPP) {
+            if (ctx.myPP === 4) score += p.winPowerPointWeight;
+            else if (ctx.myPP === 3) score += p.powerPointWeight;
+
+            if (ctx.enemyPP >= 4) score += p.winPowerPointWeight * 0.6;
+        }
+
+        if (ctx.earlyGame && !isPP) {
+            let minPPDist = Infinity;
+            for (const pp of ctx.ppCoordSet) {
+                const ppStack = this.board[pp.x]?.[pp.y];
+                const ppOccupant = ppStack?.find(pc => !ArchonGame.ELEMENTAL_TYPES.includes(pc.type));
+                if (ppOccupant?.side === mySide) continue;
+                const dist = Math.abs(move.toX - pp.x) + Math.abs(move.toY - pp.y);
+                if (dist < minPPDist) minPPDist = dist;
+            }
+            if (minPPDist < Infinity) {
+                score += Math.max(0, (8 - minPPDist)) * (p.powerPointWeight * 0.15);
+            }
+        }
+
+        if (ctx.myMage && !defender) {
+            const mageCol = ctx.myMage.col;
+            const mageRow = ctx.myMage.row;
+            const radius = p.mageDefenseRadius;
+
+            for (const enemy of ctx.enemyNearMage) {
+                const enemyDistToMage = Math.max(Math.abs(enemy.col - mageCol), Math.abs(enemy.row - mageRow));
+                if (enemyDistToMage > radius) continue;
+
+                const myDistToEnemy = Math.max(Math.abs(move.toX - enemy.col), Math.abs(move.toY - enemy.row));
+                if (myDistToEnemy <= 1) {
+                    score += p.mageThreatBias * 0.5;
+                } else {
+                    const fromDist = Math.max(Math.abs(move.fromX - enemy.col), Math.abs(move.fromY - enemy.row));
+                    if (myDistToEnemy < fromDist) {
+                        score += p.mageThreatBias * 0.25;
+                    }
+                }
+            }
+        }
+
+        // ── High-Value Unit Advancement ──
+        if (ArchonGame.HIGH_VALUE_UNITS.has(move.piece.type) && !ctx.earlyGame) {
+            const advanceDir = mySide === 'light' ? 1 : -1;
+            const advanceDelta = (move.toX - move.fromX) * advanceDir;
+            if (advanceDelta > 0) {
+                score += advanceDelta * p.centralControl * 1.5;
+            } else if (advanceDelta < 0) {
+                score += advanceDelta * p.centralControl * 0.3;
+            }
+
+            let minEnemyDist = Infinity;
+            for (const pc of this.pieces) {
+                if (pc.side === mySide || pc.state !== 'IDLE') continue;
+                const d = Math.abs(move.toX - pc.col) + Math.abs(move.toY - pc.row);
+                if (d < minEnemyDist) minEnemyDist = d;
+            }
+            if (minEnemyDist < Infinity && minEnemyDist <= 4) {
+                score += Math.max(0, (5 - minEnemyDist)) * p.centralControl * 0.8;
+            }
+        }
+
+        // ── Endgame Powerpoint Pursuit (opponent ≤ 3 pieces) ──
+        if ((ctx.enemyCount ?? ctx.enemyIcons) <= 3 && !isPP) {
+            let minPPDist = Infinity;
+            for (const pp of ctx.ppCoordSet) {
+                const ppStack = this.board[pp.x]?.[pp.y];
+                const ppOccupant = ppStack?.find(pc => !ArchonGame.ELEMENTAL_TYPES.includes(pc.type));
+                if (ppOccupant?.side === mySide) continue;
+                const dist = Math.abs(move.toX - pp.x) + Math.abs(move.toY - pp.y);
+                if (dist < minPPDist) minPPDist = dist;
+            }
+            if (minPPDist < Infinity) {
+                const ppWeight = ctx.myPP >= 3 ? p.winPowerPointWeight : p.powerPointWeight;
+                score += Math.max(0, (8 - minPPDist)) * (ppWeight * 0.25);
+            }
+        }
+
+        // ── Aggressive Mode (stall-breaking after 6+ non-attack turns) ──
+        if (ctx.aggressiveMode) {
             if (defender) {
-                if (ctx.myPP === 4) score += PP_CAPTURE_5TH;
-                else if (ctx.myPP === 3) score += PP_CAPTURE_4TH;
-
-                if (ctx.enemyPP >= 4) score += PP_BLOCK_OPPONENT_5TH;
+                const attackerHP = this.getEffectiveHP(move.piece, move.toX, move.toY);
+                const defenderHP = this.getEffectiveHP(defender, move.toX, move.toY);
+                if (attackerHP > defenderHP * 0.4) {
+                    score += p.captureWeight * 0.8;
+                }
             } else {
-                if (ctx.myPP === 4) score += PP_CAPTURE_5TH;
-                else if (ctx.myPP === 3) score += PP_CAPTURE_4TH;
+                const advanceDir = mySide === 'light' ? 1 : -1;
+                const advanceDelta = (move.toX - move.fromX) * advanceDir;
+                if (advanceDelta <= 0) {
+                    score -= p.centralControl * 3;
+                } else {
+                    score += advanceDelta * p.centralControl * 2;
+                }
 
-                if (ctx.enemyPP >= 4) score += PP_BLOCK_OPPONENT_5TH;
+                let minEnemyDist = Infinity;
+                for (const pc of this.pieces) {
+                    if (pc.side === mySide || pc.state !== 'IDLE') continue;
+                    const d = Math.abs(move.toX - pc.col) + Math.abs(move.toY - pc.row);
+                    if (d < minEnemyDist) minEnemyDist = d;
+                }
+                if (minEnemyDist < Infinity) {
+                    score += Math.max(0, (8 - minEnemyDist)) * p.centralControl;
+                }
             }
         }
 
         return score;
     }
 
-    performStrategyAITurn() {
-        if (this.strategyInputLocked) return;
-        if (this.pieces.some(p => p.state === 'MOVING')) return;
+    startAISpellVisual(action) {
+        this.strategyInputLocked = true;
+        this.aiSpellVisual = {
+            phase: 'SELECT_MAGE',
+            timer: 0,
+            action: action,
+            mageId: action.casterId,
+            spellName: action.spellName,
+            targetPieceId: action.targetPieceId ?? null,
+            targetSquare: action.targetSquare ?? null,
+            sourcePieceId: action.sourcePieceId ?? null,
+            destSquare: action.destSquare ?? null,
+            resolved: false,
+            resultTimer: 0
+        };
+        const mage = this.getPieceById(action.casterId);
+        if (mage) this.selectedPiece = mage;
+    }
 
-        const moves = this.generateAllLegalMovesForSide(this.currentSide);
-        if (moves.length === 0) return;
+    updateAISpellVisual(deltaTime) {
+        const sv = this.aiSpellVisual;
+        if (!sv) return;
+        sv.timer += deltaTime;
 
-        const mySide = this.currentSide;
-        const enemySide = mySide === 'light' ? 'dark' : 'light';
-        const ppCounts = this.countPowerPointsBySide();
-        const ppCoordSet = this.getPowerPointCoords();
-
-        const myIcons = this.pieces.filter(p => p.side === mySide && !ArchonGame.ELEMENTAL_TYPES.includes(p.type));
-        const enemyIcons = this.pieces.filter(p => p.side === enemySide && !ArchonGame.ELEMENTAL_TYPES.includes(p.type));
-
-        let captureMultiplier = 1;
-        let riskMultiplier = 1;
-        let alignMultiplier = 1;
-
-        if (myIcons.length === 1) {
-            captureMultiplier = 0.3;
-            riskMultiplier = 2.5;
-            alignMultiplier = 2.0;
+        if (sv.phase === 'SELECT_MAGE') {
+            if (sv.timer >= 0.5) {
+                sv.phase = 'SHOW_MENU';
+                sv.timer = 0;
+            }
+            return;
         }
-        if (enemyIcons.length === 1) {
-            captureMultiplier = 1.5;
-            riskMultiplier = 0.5;
+
+        if (sv.phase === 'SHOW_MENU') {
+            if (sv.timer >= 0.7) {
+                sv.phase = 'SELECT_TARGET';
+                sv.timer = 0;
+            }
+            return;
         }
 
-        const ctx = {
-            myPP: ppCounts[mySide],
-            enemyPP: ppCounts[enemySide],
-            ppCoordSet,
-            captureMultiplier,
-            riskMultiplier,
-            alignMultiplier
+        if (sv.phase === 'SELECT_TARGET') {
+            if (sv.timer >= 0.6) {
+                sv.phase = 'CONFIRMATION';
+                sv.timer = 0;
+            }
+            return;
+        }
+
+        if (sv.phase === 'CONFIRMATION') {
+            if (sv.timer >= 1.2) {
+                sv.phase = 'RESOLUTION';
+                sv.timer = 0;
+            }
+            return;
+        }
+
+        if (sv.phase === 'RESOLUTION') {
+            if (!sv.resolved) {
+                sv.resolved = true;
+                this.resolveSpellAfterVisualization(sv.action);
+            }
+            if (sv.timer >= 1.0) {
+                this.aiSpellVisual = null;
+                this.selectedPiece = null;
+                if (this.gameState === 'STRATEGY') {
+                    this.strategyInputLocked = false;
+                }
+            }
+            return;
+        }
+    }
+
+    renderAISpellVisual() {
+        const sv = this.aiSpellVisual;
+        if (!sv) return;
+
+        const layout = this.boardLayout ?? this.computeBoardLayout();
+        const { tileSize, offsetX, offsetY } = layout;
+
+        const mage = this.getPieceById(sv.mageId);
+
+        if (sv.phase === 'SELECT_MAGE' && mage) {
+            const pulse = 0.6 + Math.sin(sv.timer * 12) * 0.4;
+            const mx = offsetX + mage.col * tileSize;
+            const my = offsetY + mage.row * tileSize;
+            this.ctx.save();
+            this.ctx.strokeStyle = mage.side === 'dark'
+                ? `rgba(98, 169, 236, ${pulse})`
+                : `rgba(255, 180, 70, ${pulse})`;
+            this.ctx.lineWidth = 4;
+            this.ctx.strokeRect(mx + 2, my + 2, tileSize - 4, tileSize - 4);
+            this.ctx.restore();
+        }
+
+        if (sv.phase === 'SHOW_MENU') {
+            if (mage) {
+                const mx = offsetX + mage.col * tileSize;
+                const my = offsetY + mage.row * tileSize;
+                this.ctx.save();
+                this.ctx.strokeStyle = mage.side === 'dark'
+                    ? 'rgba(98, 169, 236, 0.9)'
+                    : 'rgba(255, 180, 70, 0.9)';
+                this.ctx.lineWidth = 4;
+                this.ctx.strokeRect(mx + 2, my + 2, tileSize - 4, tileSize - 4);
+                this.ctx.restore();
+            }
+
+            this.ctx.save();
+            this.ctx.font = '20px AppleII';
+            this.ctx.textAlign = 'center';
+            this.ctx.textBaseline = 'top';
+            this.ctx.fillStyle = '#FFFFFF';
+            const smX = this.width / 2;
+            const smY = this.height - 60;
+            this.ctx.fillText('SELECT A SPELL', smX, smY);
+            this.ctx.fillText('SELECT A SPELL', smX + 1, smY);
+            this.ctx.fillText(sv.spellName, smX, smY + 24);
+            this.ctx.fillText(sv.spellName, smX + 1, smY + 24);
+            this.ctx.restore();
+        }
+
+        if (sv.phase === 'SELECT_TARGET') {
+            if (mage) {
+                const mx = offsetX + mage.col * tileSize;
+                const my = offsetY + mage.row * tileSize;
+                this.ctx.save();
+                this.ctx.strokeStyle = mage.side === 'dark'
+                    ? 'rgba(98, 169, 236, 0.9)'
+                    : 'rgba(255, 180, 70, 0.9)';
+                this.ctx.lineWidth = 4;
+                this.ctx.strokeRect(mx + 2, my + 2, tileSize - 4, tileSize - 4);
+                this.ctx.restore();
+            }
+
+            let targetCol = null, targetRow = null;
+            if (sv.targetPieceId) {
+                const tp = this.getPieceById(sv.targetPieceId);
+                if (tp) { targetCol = tp.col; targetRow = tp.row; }
+            } else if (sv.targetSquare) {
+                targetCol = sv.targetSquare.x;
+                targetRow = sv.targetSquare.y;
+            } else if (sv.sourcePieceId) {
+                const sp = this.getPieceById(sv.sourcePieceId);
+                if (sp) { targetCol = sp.col; targetRow = sp.row; }
+            }
+
+            if (targetCol !== null && targetRow !== null) {
+                const pulse = 0.5 + Math.sin(sv.timer * 10) * 0.5;
+                const tx = offsetX + targetCol * tileSize;
+                const ty = offsetY + targetRow * tileSize;
+                this.ctx.save();
+                this.ctx.fillStyle = `rgba(255, 255, 0, ${0.15 * pulse})`;
+                this.ctx.fillRect(tx, ty, tileSize, tileSize);
+                this.ctx.strokeStyle = `rgba(255, 255, 0, ${0.85 * pulse})`;
+                this.ctx.lineWidth = 3;
+                this.ctx.strokeRect(tx + 1, ty + 1, tileSize - 2, tileSize - 2);
+                this.ctx.restore();
+            }
+
+            this.ctx.save();
+            this.ctx.font = '20px AppleII';
+            this.ctx.textAlign = 'center';
+            this.ctx.textBaseline = 'top';
+            this.ctx.fillStyle = '#FFFFFF';
+            const smX = this.width / 2;
+            const smY = this.height - 60;
+            const targetText = this.getAISpellTargetText(sv);
+            this.ctx.fillText(targetText.line1, smX, smY);
+            this.ctx.fillText(targetText.line1, smX + 1, smY);
+            if (targetText.line2) {
+                this.ctx.fillText(targetText.line2, smX, smY + 24);
+                this.ctx.fillText(targetText.line2, smX + 1, smY + 24);
+            }
+            this.ctx.restore();
+        }
+
+        if (sv.phase === 'CONFIRMATION') {
+            this.ctx.save();
+            this.ctx.font = '20px AppleII';
+            this.ctx.textAlign = 'center';
+            this.ctx.textBaseline = 'top';
+            this.ctx.fillStyle = '#FFFFFF';
+            const smX = this.width / 2;
+            const smY = this.height - 60;
+            const confirmText = this.getAISpellConfirmText(sv);
+            this.ctx.fillText(confirmText.line1, smX, smY);
+            this.ctx.fillText(confirmText.line1, smX + 1, smY);
+            if (confirmText.line2) {
+                this.ctx.fillText(confirmText.line2, smX, smY + 24);
+                this.ctx.fillText(confirmText.line2, smX + 1, smY + 24);
+            }
+            this.ctx.restore();
+
+            if (sv.sourcePieceId && sv.destSquare) {
+                const sp = this.getPieceById(sv.sourcePieceId);
+                if (sp) {
+                    const sx = offsetX + sp.col * tileSize;
+                    const sy = offsetY + sp.row * tileSize;
+                    this.ctx.save();
+                    this.ctx.strokeStyle = 'rgba(0, 255, 128, 0.8)';
+                    this.ctx.lineWidth = 3;
+                    this.ctx.strokeRect(sx + 1, sy + 1, tileSize - 2, tileSize - 2);
+                    this.ctx.restore();
+                }
+                const dx = offsetX + sv.destSquare.x * tileSize;
+                const dy = offsetY + sv.destSquare.y * tileSize;
+                this.ctx.save();
+                this.ctx.fillStyle = 'rgba(0, 255, 128, 0.2)';
+                this.ctx.fillRect(dx, dy, tileSize, tileSize);
+                this.ctx.strokeStyle = 'rgba(0, 255, 128, 0.8)';
+                this.ctx.lineWidth = 3;
+                this.ctx.strokeRect(dx + 1, dy + 1, tileSize - 2, tileSize - 2);
+                this.ctx.restore();
+            }
+        }
+
+        if (sv.phase === 'RESOLUTION') {
+            const alpha = Math.max(0, 1 - sv.timer / 1.0);
+            this.ctx.save();
+            this.ctx.globalAlpha = alpha;
+            this.ctx.font = '20px AppleII';
+            this.ctx.textAlign = 'center';
+            this.ctx.textBaseline = 'top';
+            this.ctx.fillStyle = '#FFFFFF';
+            const smX = this.width / 2;
+            const smY = this.height - 60;
+            this.ctx.fillText('IT IS DONE', smX, smY);
+            this.ctx.fillText('IT IS DONE', smX + 1, smY);
+            this.ctx.restore();
+        }
+    }
+
+    getAISpellTargetText(sv) {
+        if (sv.spellName === 'TELEPORT') {
+            return { line1: 'TELEPORT', line2: 'SELECT A FRIENDLY ICON' };
+        }
+        if (sv.spellName === 'IMPRISON') {
+            return { line1: 'IMPRISON', line2: 'WHICH FOE WILL YOU IMPRISON' };
+        }
+        if (sv.spellName === 'SUMMON ELEMENTAL') {
+            const elType = sv.action.elementalType ?? 'ELEMENTAL';
+            return { line1: 'A ' + elType.toUpperCase() + ' APPEARS!', line2: 'SEND IT TO THE TARGET' };
+        }
+        if (sv.spellName === 'HEAL') {
+            return { line1: 'HEAL', line2: 'SELECT AN ICON TO HEAL' };
+        }
+        if (sv.spellName === 'REVIVE') {
+            const revType = (sv.action.reviveType ?? 'ICON').toUpperCase();
+            return { line1: 'REVIVE', line2: revType + ' SHALL RISE AGAIN' };
+        }
+        if (sv.spellName === 'SHIFT TIME') {
+            return { line1: 'SHIFT TIME', line2: 'THE FLOW OF TIME IS REVERSED.' };
+        }
+        return { line1: sv.spellName, line2: '' };
+    }
+
+    getAISpellConfirmText(sv) {
+        if (sv.spellName === 'TELEPORT') {
+            return { line1: 'TELEPORT', line2: 'SELECT DESTINATION' };
+        }
+        if (sv.spellName === 'IMPRISON') {
+            const target = this.getPieceById(sv.targetPieceId);
+            const name = target ? target.type.toUpperCase() : 'FOE';
+            return { line1: 'IMPRISON', line2: name + ' IS IMPRISONED' };
+        }
+        if (sv.spellName === 'SUMMON ELEMENTAL') {
+            const elType = sv.action.elementalType ?? 'ELEMENTAL';
+            return { line1: 'A ' + elType.toUpperCase() + ' APPEARS!', line2: 'SEND IT TO THE TARGET' };
+        }
+        if (sv.spellName === 'HEAL') {
+            const target = this.getPieceById(sv.targetPieceId);
+            const name = target ? target.type.toUpperCase() : 'ICON';
+            return { line1: 'HEAL', line2: name + ' IS HEALED' };
+        }
+        if (sv.spellName === 'REVIVE') {
+            const revType = (sv.action.reviveType ?? 'ICON').toUpperCase();
+            return { line1: 'REVIVE', line2: revType + ' LIVES AGAIN' };
+        }
+        if (sv.spellName === 'SHIFT TIME') {
+            return { line1: 'SHIFT TIME', line2: 'THE FLOW OF TIME IS REVERSED.' };
+        }
+        return { line1: sv.spellName, line2: 'IT IS DONE' };
+    }
+
+    resolveSpellAfterVisualization(action) {
+        const mage = this.getPieceById(action.casterId);
+        if (!mage) { this.strategyInputLocked = false; return; }
+
+        if (action.spellName === 'TELEPORT') {
+            const source = this.getPieceById(action.sourcePieceId);
+            if (!source || !action.destSquare) { this.strategyInputLocked = false; return; }
+            this.executeSpellTeleport(source, action.destSquare.x, action.destSquare.y);
+            return;
+        }
+
+        if (action.spellName === 'IMPRISON') {
+            const target = this.getPieceById(action.targetPieceId);
+            if (!target) { this.strategyInputLocked = false; return; }
+            target.imprisoned = true;
+            this.usedSpells[this.currentSide].add('IMPRISON');
+            this.resetSpellState();
+            this.selectedPiece = null;
+
+            const winner = this.checkWinConditions();
+            if (winner) {
+                this.stopMovementAudio();
+                clearTimeout(this.aiTurnTimer);
+                this.aiTurnTimer = null;
+                this.strategyInputLocked = true;
+                this.gameState = 'WIN';
+                this.winningSide = winner;
+                this.startWinTheme();
+                return;
+            }
+            this.endTurn();
+            return;
+        }
+
+        if (action.spellName === 'SUMMON ELEMENTAL') {
+            const target = this.getPieceById(action.targetPieceId);
+            if (!target) { this.strategyInputLocked = false; return; }
+            this.aiResolveSummonElemental(mage, target, action.elementalType);
+            return;
+        }
+
+        if (action.spellName === 'HEAL') {
+            const target = this.getPieceById(action.targetPieceId);
+            if (!target || (target.persistentDamage ?? 0) <= 0) {
+                this.strategyInputLocked = false;
+                return;
+            }
+            const stats = UNIT_STATS[target.type] ?? {};
+            const baseHP = typeof stats.baseHP === 'number' ? stats.baseHP : 0;
+            const maxHP = typeof stats.maxHP === 'number' ? stats.maxHP : baseHP;
+            target.currentHP = maxHP;
+            target.persistentDamage = 0;
+            this.usedSpells[this.currentSide].add('HEAL');
+            this.resetSpellState();
+            this.selectedPiece = null;
+            this.endTurn();
+            return;
+        }
+
+        if (action.spellName === 'REVIVE') {
+            const destSq = action.destSquare;
+            if (!destSq) { this.strategyInputLocked = false; return; }
+            const deadFriendly = this.deadPieces.filter(dp => dp.side === action.reviveSide && dp.type === action.reviveType);
+            const dp = deadFriendly[0];
+            if (!dp) { this.strategyInputLocked = false; return; }
+
+            const stats = UNIT_STATS[dp.type] ?? {};
+            const baseHP = typeof stats.baseHP === 'number' ? stats.baseHP : 0;
+            const maxHP = typeof stats.maxHP === 'number' ? stats.maxHP : baseHP;
+
+            const newPiece = {
+                id: `revived_${Date.now()}_${Math.floor(Math.random() * 10000)}`,
+                type: dp.type,
+                side: dp.side,
+                facing: dp.side === 'light' ? 'E' : 'W',
+                state: 'IDLE',
+                remainingMove: 0,
+                walkAnimTime: 0,
+                injury: 0,
+                persistentDamage: 0,
+                baseHP,
+                maxHP,
+                currentHP: baseHP,
+                col: destSq.x,
+                row: destSq.y
+            };
+
+            this.pieces.push(newPiece);
+            this.board[destSq.x][destSq.y].push(newPiece);
+            this.deadPieces = this.deadPieces.filter(d => d !== dp);
+
+            this.usedSpells[this.currentSide].add('REVIVE');
+            this.reviveState = null;
+            this.resetSpellState();
+            this.selectedPiece = null;
+            this.endTurn();
+            return;
+        }
+
+        if (action.spellName === 'SHIFT TIME') {
+            this.boardColorDirection = (this.boardColorDirection ?? 1) * -1;
+            this.rotateBoardColors();
+            this.usedSpells[this.currentSide].add('SHIFT TIME');
+            this.resetSpellState();
+            this.selectedPiece = null;
+            this.endTurn();
+            return;
+        }
+
+        this.strategyInputLocked = false;
+    }
+
+    aiResolveSummonElemental(mage, target, elementalType) {
+        const casterSide = mage.side;
+        const allElementals = ['Air Elemental', 'Water Elemental', 'Fire Elemental', 'Earth Elemental'];
+        const chosenType = elementalType ?? allElementals[Math.floor(Math.random() * allElementals.length)];
+
+        const elementalId = `elemental_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+        const stats = UNIT_STATS[chosenType] ?? {};
+        const baseHP = typeof stats.baseHP === 'number' ? stats.baseHP : 0;
+        const maxHP = typeof stats.maxHP === 'number' ? stats.maxHP : baseHP;
+
+        const elemental = {
+            id: elementalId,
+            type: chosenType,
+            side: casterSide,
+            facing: casterSide === 'dark' ? 'W' : 'E',
+            state: 'IDLE',
+            remainingMove: 0,
+            walkAnimTime: 0,
+            injury: 0,
+            persistentDamage: 0,
+            baseHP,
+            maxHP,
+            currentHP: baseHP,
+            col: target.col,
+            row: target.row,
+            isSummoned: true
         };
 
-        let bestScore = -Infinity;
-        for (const m of moves) {
-            const s = this.scoreMove(m, ctx);
-            if (s > bestScore) bestScore = s;
+        this.pieces.push(elemental);
+        this.board[target.col][target.row].push(elemental);
+
+        this.lastSummonedElementalType = chosenType;
+        this.lastSummonedElementalSide = casterSide;
+
+        const captureResult = {
+            type: 'capture',
+            attackerId: elementalId,
+            defenderId: target.id,
+            square: { x: target.col, y: target.row }
+        };
+
+        this.usedSpells[casterSide].add('SUMMON ELEMENTAL');
+        this.resetSpellState();
+        this.selectedPiece = null;
+        this.strategyInputLocked = true;
+        this.lastCaptureAttempt = captureResult;
+        this.startCombat(captureResult);
+    }
+
+    aiPickFromScored(scored, earlyGame) {
+        const p = this.aiProfile;
+        if (scored.length === 0) return null;
+        if (earlyGame && scored.length >= 3) {
+            const top3 = scored.slice(0, 3);
+            const minScore = top3[2].score;
+            const weights = top3.map(s => Math.max(1, s.score - minScore + 1));
+            const totalWeight = weights.reduce((a, b) => a + b, 0);
+            let r = Math.random() * totalWeight;
+            let pick = top3[0].move;
+            for (let i = 0; i < top3.length; i++) {
+                r -= weights[i];
+                if (r <= 0) { pick = top3[i].move; break; }
+            }
+            return pick;
         }
+        const bestScore = scored[0].score;
+        const tieThreshold = bestScore - (p.tieBreakRandomness * 10);
+        const candidates = scored.filter(s => s.score >= tieThreshold);
+        return candidates[Math.floor(Math.random() * candidates.length)].move;
+    }
 
-        const tied = moves.filter(m => this.scoreMove(m, ctx) === bestScore);
-        const chosen = tied[Math.floor(Math.random() * tied.length)];
-
+    aiExecuteMove(chosen) {
         this.selectedPiece = chosen.piece;
         const result = this.tryStartMove(chosen.piece, chosen.toX, chosen.toY);
         if (!result) {
@@ -7311,6 +8298,413 @@ class ArchonGame {
         if (result.type === 'capture') {
             this.lastCaptureAttempt = result;
         }
+    }
+
+    performStrategyAITurn() {
+        if (this.gameState !== 'STRATEGY') return;
+        if (this.strategyInputLocked) return;
+        if (this.aiSpellVisual) return;
+        if (this.pieces.some(p => p.state === 'MOVING')) return;
+
+        const allMoves = this.generateAllLegalMovesForSide(this.currentSide);
+        if (allMoves.length === 0) return;
+
+        const p = this.aiProfile;
+        const mySide = this.currentSide;
+        const enemySide = mySide === 'light' ? 'dark' : 'light';
+        const ppCounts = this.countPowerPointsBySide();
+        const ppCoordSet = this.getPowerPointCoords();
+
+        const myIcons = this.pieces.filter(pc => pc.side === mySide && !ArchonGame.ELEMENTAL_TYPES.includes(pc.type));
+        const enemyIcons = this.pieces.filter(pc => pc.side === enemySide && !ArchonGame.ELEMENTAL_TYPES.includes(pc.type));
+        const earlyGame = (this.turnCounter ?? 0) < 6;
+        const midGame = !earlyGame && (this.turnCounter ?? 0) < 10;
+
+        const myMage = this.pieces.find(pc => pc.side === mySide && this.isMage(pc) && pc.state === 'IDLE' && !pc.imprisoned);
+        const enemyMage = this.pieces.find(pc => pc.side === enemySide && this.isMage(pc) && pc.state === 'IDLE' && !pc.imprisoned);
+        let enemyNearMage = [];
+        if (myMage) {
+            const radius = p.mageDefenseRadius;
+            enemyNearMage = this.pieces.filter(pc =>
+                pc.side === enemySide && pc.state === 'IDLE' && !pc.imprisoned &&
+                Math.max(Math.abs(pc.col - myMage.col), Math.abs(pc.row - myMage.row)) <= radius
+            );
+        }
+
+        // ── TIER 4: Spell Evaluation Pass (queued with visual) ──
+        if (myMage && !this.usedSpells[mySide].has('CEASE CONJURING')) {
+            const spellUsed = this.usedSpells[mySide];
+            const masterSpellList = ["TELEPORT", "HEAL", "SHIFT TIME", "SUMMON ELEMENTAL", "REVIVE", "EXCHANGE", "IMPRISON", "CEASE CONJURING"];
+            const available = masterSpellList.filter(s => !spellUsed.has(s));
+            const spellChance = 0.45 + Math.random() * 0.25;
+
+            if (available.includes('TELEPORT') && Math.random() < spellChance) {
+                const friendlies = this.pieces.filter(pc =>
+                    pc.side === mySide && pc.state === 'IDLE' && !pc.imprisoned &&
+                    !this.isMage(pc) && this.isSquareMisaligned(pc.col, pc.row, mySide)
+                );
+                if (friendlies.length > 0) {
+                    const source = friendlies[Math.floor(Math.random() * friendlies.length)];
+                    const goodSquares = [];
+                    for (let gx = 0; gx < this.boardSize; gx++) {
+                        for (let gy = 0; gy < this.boardSize; gy++) {
+                            if (this.board[gx][gy].length > 0) continue;
+                            if (this.isPowerPointSquare(gx, gy)) continue;
+                            if (!this.isSquareMisaligned(gx, gy, mySide)) goodSquares.push({ x: gx, y: gy });
+                        }
+                    }
+                    if (goodSquares.length > 0) {
+                        const dest = goodSquares[Math.floor(Math.random() * goodSquares.length)];
+                        this.startAISpellVisual({
+                            spellName: 'TELEPORT',
+                            casterId: myMage.id,
+                            sourcePieceId: source.id,
+                            destSquare: dest
+                        });
+                        return;
+                    }
+                }
+            }
+
+            if (available.includes('IMPRISON') && enemyMage && Math.random() < spellChance) {
+                const mageHomeCol = enemySide === 'light' ? 0 : this.boardSize - 1;
+                const mageHomeRow = Math.floor(this.boardSize / 2);
+                const isOffHome = (enemyMage.col !== mageHomeCol || enemyMage.row !== mageHomeRow);
+                if (isOffHome) {
+                    this.startAISpellVisual({
+                        spellName: 'IMPRISON',
+                        casterId: myMage.id,
+                        targetPieceId: enemyMage.id
+                    });
+                    return;
+                }
+            }
+
+            if (available.includes('SUMMON ELEMENTAL') && enemyNearMage.length > 0 && Math.random() < spellChance) {
+                const heavyThreats = enemyNearMage.filter(pc => (ArchonGame.UNIT_TIER[pc.type] ?? 1) >= 2);
+                if (heavyThreats.length > 0) {
+                    const target = heavyThreats[Math.floor(Math.random() * heavyThreats.length)];
+                    const allElementals = ['Air Elemental', 'Water Elemental', 'Fire Elemental', 'Earth Elemental'];
+                    const elType = allElementals[Math.floor(Math.random() * allElementals.length)];
+                    this.startAISpellVisual({
+                        spellName: 'SUMMON ELEMENTAL',
+                        casterId: myMage.id,
+                        targetPieceId: target.id,
+                        elementalType: elType
+                    });
+                    return;
+                }
+            }
+
+            if (available.includes('HEAL') && Math.random() < spellChance) {
+                const damaged = this.pieces.filter(pc =>
+                    pc.side === mySide && pc.state === 'IDLE' && !pc.imprisoned &&
+                    (pc.persistentDamage ?? 0) > 0
+                );
+                if (damaged.length > 0) {
+                    const healPriority = ['Dragon', 'Djinn', 'Phoenix'];
+                    const lateGame = (this.turnCounter ?? 0) >= 10;
+                    if (lateGame) {
+                        healPriority.push('Wizard', 'Sorceress');
+                    }
+                    let healTarget = null;
+                    for (const name of healPriority) {
+                        healTarget = damaged.find(pc => pc.type === name);
+                        if (healTarget) break;
+                    }
+                    if (!healTarget) {
+                        damaged.sort((a, b) => {
+                            const aMax = UNIT_STATS[a.type]?.maxHP ?? 0;
+                            const bMax = UNIT_STATS[b.type]?.maxHP ?? 0;
+                            return bMax - aMax;
+                        });
+                        healTarget = damaged[0];
+                    }
+                    if (healTarget) {
+                        this.startAISpellVisual({
+                            spellName: 'HEAL',
+                            casterId: myMage.id,
+                            targetPieceId: healTarget.id
+                        });
+                        return;
+                    }
+                }
+            }
+
+            if (available.includes('REVIVE') && Math.random() < spellChance) {
+                const deadFriendly = this.deadPieces.filter(dp => dp.side === mySide);
+                const charmedSquares = this.getCharmedSquaresForMage(myMage);
+                if (deadFriendly.length > 0 && charmedSquares.length > 0) {
+                    const revivePriority = mySide === 'dark'
+                        ? ['Dragon', 'Shape Shifter']
+                        : ['Djinn', 'Phoenix'];
+                    let reviveTarget = null;
+                    for (const name of revivePriority) {
+                        reviveTarget = deadFriendly.find(dp => dp.type === name);
+                        if (reviveTarget) break;
+                    }
+                    if (!reviveTarget) {
+                        deadFriendly.sort((a, b) => {
+                            const aMax = UNIT_STATS[a.type]?.maxHP ?? 0;
+                            const bMax = UNIT_STATS[b.type]?.maxHP ?? 0;
+                            return bMax - aMax;
+                        });
+                        reviveTarget = deadFriendly[0];
+                    }
+                    const validSquares = charmedSquares.filter(sq => !this.isPowerPointSquare(sq.x, sq.y));
+                    if (validSquares.length > 0 && reviveTarget) {
+                        const center = Math.floor(this.boardSize / 2);
+                        validSquares.sort((a, b) => {
+                            const aDist = Math.abs(a.x - center) + Math.abs(a.y - center);
+                            const bDist = Math.abs(b.x - center) + Math.abs(b.y - center);
+                            return aDist - bDist;
+                        });
+                        const placeSq = validSquares[0];
+                        this.startAISpellVisual({
+                            spellName: 'REVIVE',
+                            casterId: myMage.id,
+                            reviveType: reviveTarget.type,
+                            reviveSide: reviveTarget.side,
+                            destSquare: placeSq
+                        });
+                        return;
+                    }
+                }
+            }
+
+            if (available.includes('SHIFT TIME') && Math.random() < spellChance) {
+                const myPP = ppCounts[mySide];
+                const enemyPP = ppCounts[enemySide];
+                const hasImprisoned = this.pieces.some(pc => pc.side === mySide && pc.imprisoned);
+                const behindOnPP = enemyPP > myPP;
+                const pursuingPPWin = myPP >= 3;
+                if (hasImprisoned || behindOnPP || pursuingPPWin) {
+                    this.startAISpellVisual({
+                        spellName: 'SHIFT TIME',
+                        casterId: myMage.id
+                    });
+                    return;
+                }
+            }
+        }
+
+        // ── TIER 1: Emergency Mage Protection ──
+        if (myMage && enemyNearMage.length > 0) {
+            const mageDefenseMoves = [];
+            for (const m of allMoves) {
+                const destStack = this.board[m.toX][m.toY];
+                const defender = destStack.find(pp => pp.side !== mySide);
+
+                if (defender && enemyNearMage.some(e => e.id === defender.id)) {
+                    mageDefenseMoves.push(m);
+                    continue;
+                }
+
+                if (!defender) {
+                    const adjToMage = Math.max(Math.abs(m.toX - myMage.col), Math.abs(m.toY - myMage.row)) <= 1;
+                    if (adjToMage && m.piece.id !== myMage.id) {
+                        const tier = ArchonGame.UNIT_TIER[m.piece.type] ?? 1;
+                        if (tier >= 2) {
+                            mageDefenseMoves.push(m);
+                        }
+                    }
+                }
+            }
+
+            if (mageDefenseMoves.length === 0 && allMoves.length > 0) {
+                for (const m of allMoves) {
+                    const destStack = this.board[m.toX][m.toY];
+                    const defender = destStack.find(pp => pp.side !== mySide);
+                    if (defender && enemyNearMage.some(e => e.id === defender.id)) {
+                        mageDefenseMoves.push(m);
+                    }
+                    if (!defender) {
+                        const adjToMage = Math.max(Math.abs(m.toX - myMage.col), Math.abs(m.toY - myMage.row)) <= 1;
+                        if (adjToMage && m.piece.id !== myMage.id) {
+                            mageDefenseMoves.push(m);
+                        }
+                    }
+                }
+            }
+
+            if (mageDefenseMoves.length > 0) {
+                const ctx = this.buildScoringContext(mySide, enemySide, ppCounts, ppCoordSet, myIcons, enemyIcons, earlyGame || midGame, myMage, enemyNearMage);
+                const scored = mageDefenseMoves.map(m => ({ move: m, score: this.scoreMove(m, ctx) }));
+                scored.sort((a, b) => b.score - a.score);
+                const chosen = this.aiPickFromScored(scored, false);
+                if (chosen) { this.aiExecuteMove(chosen); return; }
+            }
+        }
+
+        // ── TIER 2: Catastrophic Trade Filter ──
+        let moves = allMoves.filter(m => {
+            const destStack = this.board[m.toX][m.toY];
+            const defender = destStack.find(pp => pp.side !== mySide);
+            if (!defender) return true;
+
+            const attackerTier = ArchonGame.UNIT_TIER[m.piece.type] ?? 1;
+            const defenderTier = ArchonGame.UNIT_TIER[defender.type] ?? 1;
+
+            if (attackerTier >= defenderTier) return true;
+
+            const colorCode = (this.boardColorCodes?.[m.toY]?.[m.toX] ?? 'D').toUpperCase();
+            const entry = HP_BONUS_BY_COLOR[colorCode];
+            const attackerBonus = entry ? (entry[mySide] ?? 0) : 0;
+            const defenderBonus = entry ? (entry[enemySide] ?? 0) : 0;
+            if (attackerBonus >= defenderBonus) return true;
+
+            let attackerHP;
+            if (m.piece.type === 'Shape Shifter') {
+                attackerHP = this.getShapeshifterEffectiveHP(defender.type, mySide, m.toX, m.toY);
+            } else {
+                attackerHP = this.getEffectiveHP(m.piece, m.toX, m.toY);
+            }
+            const defenderHP = this.getEffectiveHP(defender, m.toX, m.toY);
+
+            if (defenderHP - attackerHP > 3) return false;
+
+            return true;
+        });
+
+        if (moves.length === 0) moves = allMoves;
+
+        // ── TIER 3: Early Game Alignment Priority ──
+        if (earlyGame) {
+            const repositionMoves = [];
+            const safeCapturesMoves = [];
+            const otherMoves = [];
+
+            for (const m of moves) {
+                const destStack = this.board[m.toX][m.toY];
+                const defender = destStack.find(pp => pp.side !== mySide);
+
+                if (defender) {
+                    const colorCode = (this.boardColorCodes?.[m.toY]?.[m.toX] ?? 'D').toUpperCase();
+                    const entry = HP_BONUS_BY_COLOR[colorCode];
+                    const attackerBonus = entry ? (entry[mySide] ?? 0) : 0;
+                    const defenderBonus = entry ? (entry[enemySide] ?? 0) : 0;
+
+                    if (attackerBonus >= defenderBonus) {
+                        safeCapturesMoves.push(m);
+                    } else {
+                        const defenderTier = ArchonGame.UNIT_TIER[defender.type] ?? 1;
+                        if (defenderTier === 1) {
+                            safeCapturesMoves.push(m);
+                        }
+                    }
+                } else {
+                    const fromMisaligned = this.isSquareMisaligned(m.fromX, m.fromY, mySide);
+                    const toMisaligned = this.isSquareMisaligned(m.toX, m.toY, mySide);
+                    if (fromMisaligned && !toMisaligned) {
+                        repositionMoves.push(m);
+                    } else {
+                        otherMoves.push(m);
+                    }
+                }
+            }
+
+            const earlyMoves = [...repositionMoves, ...safeCapturesMoves, ...otherMoves];
+            if (earlyMoves.length > 0) moves = earlyMoves;
+        }
+
+        // ── TIER 5: Shapeshifter Correction (applied in scoring context) ──
+        let captureMultiplier = 1;
+        let riskMultiplier = 1;
+        let alignMultiplier = 1;
+
+        if (earlyGame || midGame) {
+            captureMultiplier *= p.earlyGameCaptureMultiplier;
+            alignMultiplier *= p.earlyGameAlignmentBias;
+        }
+
+        if (myIcons.length === 1) {
+            captureMultiplier *= 0.3;
+            riskMultiplier *= 2.5;
+            alignMultiplier *= 2.0;
+        }
+        if (enemyIcons.length === 1) {
+            captureMultiplier *= 1.5;
+            riskMultiplier *= 0.5;
+        }
+
+        const aggressiveMode = (this.consecutiveNonAttackMoves ?? 0) >= 6;
+
+        const ctx = {
+            myPP: ppCounts[mySide],
+            enemyPP: ppCounts[enemySide],
+            ppCoordSet,
+            captureMultiplier,
+            riskMultiplier,
+            alignMultiplier,
+            enemyIcons: enemyIcons.length,
+            earlyGame: earlyGame || midGame,
+            myMage: myMage ?? null,
+            enemyNearMage,
+            aggressiveMode,
+            enemyCount: enemyIcons.length
+        };
+
+        // ── Score moves with Shapeshifter correction ──
+        const scored = moves.map(m => {
+            let score = this.scoreMove(m, ctx);
+
+            if (m.piece.type === 'Shape Shifter') {
+                const destStack = this.board[m.toX][m.toY];
+                const defender = destStack.find(pp => pp.side !== mySide);
+                if (defender) {
+                    const ssHP = this.getShapeshifterEffectiveHP(defender.type, mySide, m.toX, m.toY);
+                    const defHP = this.getEffectiveHP(defender, m.toX, m.toY);
+                    if (ssHP > defHP) {
+                        score += p.captureWeight * 0.3;
+                    } else if (defHP - ssHP > 3) {
+                        score -= p.highValueSafetyBias * 2;
+                    }
+                }
+            }
+
+            return { move: m, score };
+        });
+        scored.sort((a, b) => b.score - a.score);
+
+        // ── TIER 6: Random tie-breaking / early variety ──
+        const chosen = this.aiPickFromScored(scored, earlyGame);
+        if (chosen) { this.aiExecuteMove(chosen); }
+    }
+
+    buildScoringContext(mySide, enemySide, ppCounts, ppCoordSet, myIcons, enemyIcons, earlyGame, myMage, enemyNearMage) {
+        const p = this.aiProfile;
+        let captureMultiplier = 1;
+        let riskMultiplier = 1;
+        let alignMultiplier = 1;
+
+        if (earlyGame) {
+            captureMultiplier *= p.earlyGameCaptureMultiplier;
+            alignMultiplier *= p.earlyGameAlignmentBias;
+        }
+        if (myIcons.length === 1) {
+            captureMultiplier *= 0.3;
+            riskMultiplier *= 2.5;
+            alignMultiplier *= 2.0;
+        }
+        if (enemyIcons.length === 1) {
+            captureMultiplier *= 1.5;
+            riskMultiplier *= 0.5;
+        }
+
+        return {
+            myPP: ppCounts[mySide],
+            enemyPP: ppCounts[enemySide],
+            ppCoordSet,
+            captureMultiplier,
+            riskMultiplier,
+            alignMultiplier,
+            enemyIcons: enemyIcons.length,
+            earlyGame,
+            myMage: myMage ?? null,
+            enemyNearMage,
+            aggressiveMode: (this.consecutiveNonAttackMoves ?? 0) >= 6,
+            enemyCount: enemyIcons.length
+        };
     }
 
     tryStartMove(piece, destX, destY) {
@@ -7568,6 +8962,7 @@ class ArchonGame {
     }
 
     endTurn() {
+        this.consecutiveNonAttackMoves = (this.consecutiveNonAttackMoves ?? 0) + 1;
         this.turnCounter = (this.turnCounter ?? 0) + 1;
         this.selectedPiece = null;
         const prevSide = this.currentSide;
@@ -7582,6 +8977,12 @@ class ArchonGame {
 
         const winner = this.checkWinConditions();
         if (winner) {
+            this.stopMovementAudio();
+            clearTimeout(this.aiTurnTimer);
+            this.aiTurnTimer = null;
+            clearTimeout(this.teleportSoundTimer);
+            this.teleportSoundTimer = null;
+            this.strategyInputLocked = true;
             this.gameState = 'WIN';
             this.winningSide = winner;
             this.startWinTheme();
