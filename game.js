@@ -606,9 +606,36 @@ const TURN_CHANGE_SFX = 'assets/audio/Turn Change.m4a';
 
 const TELEPORT_SFX = 'assets/audio/Wizard Teleport Strategy.m4a';
 
+const COMBAT_ATTACK_SFX = {
+    'Knight':          'assets/audio/goblin attack.m4a',
+    'Goblin':          'assets/audio/goblin attack.m4a',
+    'Banshee':         'assets/audio/banshee attack.m4a',
+    'Phoenix':         'assets/audio/phoenix attack.m4a',
+    'Valkyrie':        'assets/audio/Valkyrie Attack.m4a',
+    'Archer':          'assets/audio/Valkyrie Attack.m4a',
+    'Golem':           'assets/audio/Valkyrie Attack.m4a',
+    'Wizard':          'assets/audio/Valkyrie Attack.m4a',
+    'Manticore':       'assets/audio/Valkyrie Attack.m4a',
+    'Troll':           'assets/audio/Valkyrie Attack.m4a',
+    'Dragon':          'assets/audio/Valkyrie Attack.m4a',
+    'Sorceress':       'assets/audio/Valkyrie Attack.m4a',
+    'Air Elemental':   'assets/audio/Valkyrie Attack.m4a',
+    'Water Elemental': 'assets/audio/Valkyrie Attack.m4a',
+    'Fire Elemental':  'assets/audio/Valkyrie Attack.m4a',
+    'Earth Elemental': 'assets/audio/Valkyrie Attack.m4a',
+    'Unicorn':         'assets/audio/attack short.m4a',
+    'Djinn':           'assets/audio/attack short.m4a',
+    'Basilisk':        'assets/audio/attack short.m4a'
+};
+
 const ONE_SHOT_SFX = {
     'turnChange': TURN_CHANGE_SFX,
-    'teleport': TELEPORT_SFX
+    'teleport': TELEPORT_SFX,
+    'atkGoblin':    'assets/audio/goblin attack.m4a',
+    'atkBanshee':   'assets/audio/banshee attack.m4a',
+    'atkPhoenix':   'assets/audio/phoenix attack.m4a',
+    'atkValkyrie':  'assets/audio/Valkyrie Attack.m4a',
+    'atkShort':     'assets/audio/attack short.m4a'
 };
 
 // ---- AI Profiles ----
@@ -1862,6 +1889,26 @@ class ArchonGame {
             }
             if (this.gameState === 'STRATEGY') {
                 e.preventDefault();
+                // ── Spell menu touch: intercept all touches when menu is open ──
+                if (this.spellMenu.active) {
+                    // Two-finger tap → close menu
+                    if (e.touches.length >= 2) {
+                        this.spellMenu.active = false;
+                        this._smTouch = null;
+                        return;
+                    }
+                    const touch = e.changedTouches[0];
+                    if (!touch) return;
+                    const pos = getTouchCanvasPos(touch);
+                    this._smTouch = {
+                        id: touch.identifier,
+                        startX: pos.x,
+                        startY: pos.y,
+                        startTime: performance.now(),
+                        swiped: false
+                    };
+                    return;
+                }
                 const touch = e.changedTouches[0];
                 if (!touch) return;
                 this.handleCanvasMouseDown({ clientX: touch.clientX, clientY: touch.clientY, preventDefault: () => {} });
@@ -1905,6 +1952,28 @@ class ArchonGame {
                 this.configPointerY = pos.y;
                 return;
             }
+            // ── Spell menu touch: vertical swipe scrolls spell list ──
+            if (this.gameState === 'STRATEGY' && this.spellMenu.active && this._smTouch) {
+                e.preventDefault();
+                const touch = e.changedTouches[0];
+                if (!touch || touch.identifier !== this._smTouch.id) return;
+                const pos = getTouchCanvasPos(touch);
+                const dy = pos.y - this._smTouch.startY;
+                const swipeThreshold = 40;
+                if (Math.abs(dy) >= swipeThreshold) {
+                    const spellCount = this.spellMenu.spells.length;
+                    // Swipe down → next spell, swipe up → previous spell
+                    if (dy > 0) {
+                        this.spellMenu.selectedIndex = Math.min(this.spellMenu.selectedIndex + 1, spellCount - 1);
+                    } else {
+                        this.spellMenu.selectedIndex = Math.max(this.spellMenu.selectedIndex - 1, 0);
+                    }
+                    this._smTouch.swiped = true;
+                    // Reset start position for debounce — next step requires a fresh swipe
+                    this._smTouch.startY = pos.y;
+                }
+                return;
+            }
             if (this.gameState !== 'COMBAT') return;
             if (this.combat?.introState && this.combat.introState !== 'ACTIVE') return;
             e.preventDefault();
@@ -1925,6 +1994,40 @@ class ArchonGame {
         }, { passive: false });
 
         const handleTouchEnd = (e) => {
+            // ── Spell menu touch: double-tap selects, single tap cancels ──
+            if (this.gameState === 'STRATEGY' && this.spellMenu.active) {
+                e.preventDefault();
+                const touch = e.changedTouches[0];
+                if (!touch) return;
+                const sm = this._smTouch;
+                if (!sm || touch.identifier !== sm.id) return;
+                const now = performance.now();
+                const elapsed = now - sm.startTime;
+                // If the finger swiped, this gesture was navigation — do nothing on lift
+                if (sm.swiped) {
+                    this._smTouch = null;
+                    return;
+                }
+                // Short tap (< 300 ms) — check for double-tap to confirm
+                if (elapsed < 300) {
+                    if (this._smLastTapTime && now - this._smLastTapTime < 400) {
+                        // Double tap → confirm spell selection
+                        this._smLastTapTime = 0;
+                        this._smTouch = null;
+                        this.confirmSpellSelection();
+                        return;
+                    }
+                    // Record as first tap; cancel menu if no second tap arrives
+                    this._smLastTapTime = now;
+                    this._smTouch = null;
+                    return;
+                }
+                // Long press or ambiguous — treat as cancel
+                this._smTouch = null;
+                this._smLastTapTime = 0;
+                this.spellMenu.active = false;
+                return;
+            }
             if (this.gameState !== 'COMBAT') return;
             if (this.combat?.introState && this.combat.introState !== 'ACTIVE') return;
             e.preventDefault();
@@ -2028,7 +2131,7 @@ class ArchonGame {
 
         if (!this.configState) {
             this.configState = {
-                playing: 'TWO_PLAYERS_BOTH_ON_KEYBOARD',
+                playing: 'ONE_PLAYER_COMPUTER_DARK',
                 sound: 'SOUND_ON',
                 order: 'LIGHT_FIRST',
                 difficulty: 'ORIGINAL'
@@ -2230,7 +2333,7 @@ class ArchonGame {
 
                 if (!this.configState) {
                     this.configState = {
-                        playing: 'TWO_PLAYERS_BOTH_ON_KEYBOARD',
+                        playing: 'ONE_PLAYER_COMPUTER_DARK',
                         sound: 'SOUND_ON',
                         order: 'LIGHT_FIRST'
                     };
@@ -2274,7 +2377,7 @@ class ArchonGame {
         this.canvas.style.cursor = 'none';
         if (!this.configState) {
             this.configState = {
-                playing: 'TWO_PLAYERS_BOTH_ON_KEYBOARD',
+                playing: 'ONE_PLAYER_COMPUTER_DARK',
                 sound: 'SOUND_ON',
                 order: 'LIGHT_FIRST',
                 difficulty: 'ORIGINAL'
@@ -2381,6 +2484,15 @@ class ArchonGame {
         elem.volume = vol;
         elem.currentTime = 0;
         elem.play().catch(() => {});
+    }
+
+    playCombatAttackSound(piece) {
+        if (this.gameConfig?.sound === 'SOUND_OFF') return;
+        const effectiveType = this.getEffectiveCombatTypeForPiece(piece);
+        const path = COMBAT_ATTACK_SFX[effectiveType];
+        if (!path) return;
+        const key = Object.keys(ONE_SHOT_SFX).find(k => ONE_SHOT_SFX[k] === path);
+        if (key) this.playOneShot(key);
     }
 
     playTurnChangeSound() {
@@ -3610,34 +3722,52 @@ class ArchonGame {
         if (!actor || !enemyActor || !piece) return result;
 
         const profile = this.aiProfile;
-
         const stats = this.getUnitStats(piece.type, piece.id);
         if (!stats) return result;
         const combatType = this.getCombatType(piece.type, piece.id);
 
+        // ── Derive scalars from profile ──
         const riskTol = profile.riskTolerance ?? 0.85;
         const tieRand = profile.tieBreakRandomness ?? 0.25;
         const safetyBias = profile.highValueSafetyBias ?? 1.4;
         const aggrBias = profile.lowValueAggressionBias ?? 1.2;
 
-        const aggressionBias = aggrBias / safetyBias;
-        const retreatBias = safetyBias / Math.max(0.5, riskTol);
-        const aimPrecision = 1.0 - tieRand;
-        const reactionDelay = tieRand * 0.4;
-        const randomnessFactor = tieRand;
+        const aggressionScale = aggrBias / safetyBias;
+        const retreatScale = safetyBias / Math.max(0.5, riskTol);
+        const randomness = tieRand;
         const commitThreshold = 0.35 * riskTol;
 
+        // Movement commitment duration: higher riskTol → shorter reconsider window
+        const baseCommitTime = 0.4 + (1.0 - riskTol) * 0.5;
+        const commitDuration = Math.max(0.25, Math.min(1.0, baseCommitTime));
+
+        // Fire reaction delay: higher tieRand → slower reaction
+        const fireReactionDelay = 0.05 + tieRand * 0.35;
+
+        // Dodge probability: lower riskTol → more likely to dodge
+        const dodgeChance = Math.max(0.2, Math.min(0.95, 1.0 - riskTol * 0.6));
+        const dodgeDuration = 0.3 + tieRand * 0.2;
+
+        // Banshee engage/disengage timing
+        const auraEngageTime = 0.8 + aggressionScale * 0.8;
+        const auraDisengageTime = 0.6 + (1.0 - aggressionScale) * 0.6;
+
+        // Cover usage probability for ranged units
+        const coverUseChance = Math.max(0, Math.min(0.8, safetyBias * 0.3 - riskTol * 0.15));
+
+        // ── Shared geometry ──
         const toEnemyX = enemyActor.x - actor.x;
         const toEnemyY = enemyActor.y - actor.y;
         const dist = Math.hypot(toEnemyX, toEnemyY) || 1;
         const ndx = toEnemyX / dist;
         const ndy = toEnemyY / dist;
+        const perpX = -ndy;
+        const perpY = ndx;
 
         const selfHP = actor.currentHP ?? 0;
         const enemyHP = enemyActor.currentHP ?? 1;
         const enemyMaxHP = enemyActor.maxHP ?? enemyHP;
         const hpRatio = selfHP / Math.max(0.1, enemyHP);
-
         const enemyHPFraction = enemyHP / Math.max(1, enemyMaxHP);
         const endgameCommit = enemyHPFraction < commitThreshold;
 
@@ -3645,106 +3775,298 @@ class ArchonGame {
         const meleeRange = spriteSize * 1.2;
         const isAttacking = actor.isAttacking;
         const onCooldown = (actor.attackCooldownLeft ?? 0) > 0;
-
         const now = performance.now();
-        if (!actor._aiLastFireTime) actor._aiLastFireTime = 0;
-        const sinceLastFire = (now - actor._aiLastFireTime) / 1000;
-        const reactionReady = sinceLastFire >= reactionDelay;
+
+        // ── Initialize per-actor AI state (persists across frames) ──
+        if (!actor._ai) {
+            actor._ai = {
+                commitDx: 0,
+                commitDy: 0,
+                commitTimer: 0,
+                fireDelayTimer: 0,
+                fireDelayActive: false,
+                dodgeTimer: 0,
+                dodgeDx: 0,
+                dodgeDy: 0,
+                auraPhase: 'engage',
+                auraPhaseTimer: 0,
+                strafeDir: Math.random() < 0.5 ? 1 : -1,
+                lastFireTime: 0
+            };
+        }
+        const ai = actor._ai;
+
+        // ── 1. Event-based dodge detection ──
+        if (ai.dodgeTimer > 0) {
+            ai.dodgeTimer -= deltaTime;
+            result.dx = ai.dodgeDx;
+            result.dy = ai.dodgeDy;
+            // Still allow firing during dodge
+            this._aiTryFire(ai, actor, enemyActor, ndx, ndy, dist, combatType, isAttacking, onCooldown, fireReactionDelay, endgameCommit, meleeRange, spriteSize, retreatScale, aggressionScale, randomness, hpRatio, result, now, deltaTime);
+            this._aiNormalize(result);
+            return result;
+        }
+
+        // Check for incoming projectiles and trigger dodge
+        const projectiles = this.combat?.projectiles ?? [];
+        for (const p of projectiles) {
+            if (p.ownerSide === side) continue;
+            const toProjX = p.x - actor.x;
+            const toProjY = p.y - actor.y;
+            const projDist = Math.hypot(toProjX, toProjY);
+            if (projDist > spriteSize * 4) continue;
+
+            // Check if projectile is heading toward us
+            const dotApproach = -(toProjX * p.vx + toProjY * p.vy);
+            if (dotApproach <= 0) continue;
+
+            // Perpendicular distance from projectile path to actor
+            const crossDist = Math.abs(toProjX * p.vy - toProjY * p.vx);
+            if (crossDist > spriteSize * 1.5) continue;
+
+            // Time to impact estimate
+            const timeToImpact = projDist / Math.max(1, p.speed);
+            if (timeToImpact > 0.6) continue;
+
+            // Roll for dodge based on difficulty
+            if (Math.random() < dodgeChance) {
+                // Dodge perpendicular to projectile direction
+                const dodgeSide = (p.vx * (actor.y - p.y) - p.vy * (actor.x - p.x)) > 0 ? 1 : -1;
+                ai.dodgeDx = -p.vy * dodgeSide;
+                ai.dodgeDy = p.vx * dodgeSide;
+                const dLen = Math.hypot(ai.dodgeDx, ai.dodgeDy) || 1;
+                ai.dodgeDx /= dLen;
+                ai.dodgeDy /= dLen;
+                ai.dodgeTimer = dodgeDuration;
+                ai.commitTimer = 0;
+                result.dx = ai.dodgeDx;
+                result.dy = ai.dodgeDy;
+                this._aiNormalize(result);
+                return result;
+            }
+            break;
+        }
+
+        // ── 2. Compute desired direction based on combat type ──
+        let wantDx = 0;
+        let wantDy = 0;
+        let movePriority = 'normal';
 
         if (combatType === 'MELEE') {
-            const meleeRetreatHP = 0.7 * retreatBias;
             if (dist > meleeRange) {
-                const speedMult = (hpRatio < meleeRetreatHP || endgameCommit) ? 1.0 : (0.85 * aggressionBias);
-                result.dx = ndx * Math.min(1, speedMult);
-                result.dy = ndy * Math.min(1, speedMult);
+                const speedMult = endgameCommit ? 1.0 : Math.min(1, 0.85 * aggressionScale);
+                wantDx = ndx * speedMult;
+                wantDy = ndy * speedMult;
             } else {
-                result.dx = 0;
-                result.dy = 0;
-                if (!isAttacking && !onCooldown && reactionReady) {
-                    result.fire = true;
-                    result.aimDx = ndx;
-                    result.aimDy = ndy;
-                    actor._aiLastFireTime = now;
-                }
+                wantDx = 0;
+                wantDy = 0;
             }
         } else if (combatType === 'AURA') {
-            const auraEngageRange = spriteSize * 2.0;
-            if (dist > auraEngageRange) {
-                result.dx = ndx;
-                result.dy = ndy;
+            // ── 4. Banshee engage/disengage pacing ──
+            const auraEngageRange = spriteSize * 2.5;
+            ai.auraPhaseTimer += deltaTime;
+
+            if (ai.auraPhase === 'engage') {
+                if (ai.auraPhaseTimer >= auraEngageTime) {
+                    ai.auraPhase = 'disengage';
+                    ai.auraPhaseTimer = 0;
+                }
+                if (dist > auraEngageRange) {
+                    wantDx = ndx;
+                    wantDy = ndy;
+                } else {
+                    // Close in steadily, slight orbit
+                    const orbitWeight = endgameCommit ? 0.15 : 0.35;
+                    const closeWeight = endgameCommit ? 0.85 : 0.65;
+                    wantDx = ndx * closeWeight + perpX * ai.strafeDir * orbitWeight;
+                    wantDy = ndy * closeWeight + perpY * ai.strafeDir * orbitWeight;
+                }
             } else {
-                const orbitAngle = (this.combat.auraTime ?? 0) * 1.5;
-                const perpX = -ndy;
-                const perpY = ndx;
-                const orbitWeight = endgameCommit ? 0.2 : 0.7;
-                const closeWeight = endgameCommit ? 0.8 : 0.3;
-                result.dx = ndx * closeWeight + perpX * Math.sin(orbitAngle) * orbitWeight;
-                result.dy = ndy * closeWeight + perpY * Math.sin(orbitAngle) * orbitWeight;
-            }
-            if (dist < auraEngageRange && !isAttacking && !onCooldown && reactionReady) {
-                result.fire = true;
-                result.aimDx = ndx;
-                result.aimDy = ndy;
-                actor._aiLastFireTime = now;
+                if (ai.auraPhaseTimer >= auraDisengageTime) {
+                    ai.auraPhase = 'engage';
+                    ai.auraPhaseTimer = 0;
+                    ai.strafeDir = Math.random() < 0.5 ? 1 : -1;
+                }
+                // Pull back
+                const pullWeight = 0.6;
+                const driftWeight = 0.4;
+                wantDx = -ndx * pullWeight + perpX * ai.strafeDir * driftWeight;
+                wantDy = -ndy * pullWeight + perpY * ai.strafeDir * driftWeight;
             }
         } else if (combatType === 'PROJECTILE') {
             const idealMin = spriteSize * 3.0;
             const idealMax = spriteSize * 5.5;
-            const tooClose = spriteSize * 1.8 * retreatBias;
-            const maxShootDist = spriteSize * 7.0;
+            const tooClose = spriteSize * 1.8 * retreatScale;
 
             const shouldRetreat = !endgameCommit && dist < tooClose;
 
             if (shouldRetreat) {
-                result.dx = -ndx;
-                result.dy = -ndy;
+                wantDx = -ndx;
+                wantDy = -ndy;
+                movePriority = 'retreat';
             } else if (endgameCommit && dist > meleeRange) {
-                result.dx = ndx * 0.9;
-                result.dy = ndy * 0.9;
+                wantDx = ndx * 0.9;
+                wantDy = ndy * 0.9;
             } else if (dist > idealMax) {
-                result.dx = ndx * 0.8;
-                result.dy = ndy * 0.8;
+                wantDx = ndx * 0.75;
+                wantDy = ndy * 0.75;
             } else {
-                const perpX = -ndy;
-                const perpY = ndx;
-                const strafeDir = ((actor.x + actor.y) % 2 < 1) ? 1 : -1;
-                result.dx = perpX * strafeDir * 0.6;
-                result.dy = perpY * strafeDir * 0.6;
+                // ── 6. Light cover usage ──
+                let useCover = false;
+                if (dist > idealMin && Math.random() < coverUseChance) {
+                    const obstacles = this.combat?.obstacles ?? [];
+                    for (const obs of obstacles) {
+                        if (obs.type !== 'solid') continue;
+                        const toObsX = obs.x - actor.x;
+                        const toObsY = obs.y - actor.y;
+                        const obsDist = Math.hypot(toObsX, toObsY);
+                        if (obsDist < spriteSize * 1.0 || obsDist > spriteSize * 3.0) continue;
+                        // Is obstacle roughly between us and enemy?
+                        const dotToEnemy = (toObsX * ndx + toObsY * ndy);
+                        if (dotToEnemy > 0 && dotToEnemy < dist * 0.6) {
+                            // Strafe toward cover edge
+                            const coverPerpDot = toObsX * perpX + toObsY * perpY;
+                            const coverSide = coverPerpDot > 0 ? 1 : -1;
+                            wantDx = perpX * coverSide * 0.7 + ndx * 0.1;
+                            wantDy = perpY * coverSide * 0.7 + ndy * 0.1;
+                            useCover = true;
+                            break;
+                        }
+                    }
+                }
 
+                if (!useCover) {
+                    wantDx = perpX * ai.strafeDir * 0.6;
+                    wantDy = perpY * ai.strafeDir * 0.6;
+                }
+
+                // Arena edge correction
                 const arenaMargin = half + 20;
-                if (actor.x < arena.ax + arenaMargin) result.dx += 0.4;
-                if (actor.x > arena.ax + arena.arenaW - arenaMargin) result.dx -= 0.4;
-                if (actor.y < arena.ay + arenaMargin) result.dy += 0.4;
-                if (actor.y > arena.ay + arena.arenaH - arenaMargin) result.dy -= 0.4;
+                if (actor.x < arena.ax + arenaMargin) wantDx += 0.4;
+                if (actor.x > arena.ax + arena.arenaW - arenaMargin) wantDx -= 0.4;
+                if (actor.y < arena.ay + arenaMargin) wantDy += 0.4;
+                if (actor.y > arena.ay + arena.arenaH - arenaMargin) wantDy -= 0.4;
             }
+        }
 
-            const canShoot = dist >= (endgameCommit ? meleeRange : tooClose) && dist <= maxShootDist;
-            const lineBlocked = this.isCombatLineBlocked(actor.x, actor.y, enemyActor.x, enemyActor.y);
-            const losOverride = lineBlocked && Math.random() < randomnessFactor * 0.3;
-            const effectiveLOS = !lineBlocked || losOverride;
-            const pointBlankDanger = !endgameCommit && dist < idealMin && hpRatio < (0.5 * aggressionBias);
+        // ── 1. Movement commitment system ──
+        ai.commitTimer -= deltaTime;
 
-            if (canShoot && effectiveLOS && !pointBlankDanger && !isAttacking && !onCooldown && reactionReady) {
+        const shouldOverrideCommit = movePriority === 'retreat';
+
+        if (ai.commitTimer <= 0 || shouldOverrideCommit) {
+            ai.commitDx = wantDx;
+            ai.commitDy = wantDy;
+            // Vary commit duration slightly each time
+            ai.commitTimer = commitDuration * (0.8 + Math.random() * 0.4);
+            // Occasionally flip strafe direction
+            if (Math.random() < 0.3) ai.strafeDir *= -1;
+        }
+
+        result.dx = ai.commitDx;
+        result.dy = ai.commitDy;
+
+        // ── 2. Fire rhythm ──
+        this._aiTryFire(ai, actor, enemyActor, ndx, ndy, dist, combatType, isAttacking, onCooldown, fireReactionDelay, endgameCommit, meleeRange, spriteSize, retreatScale, aggressionScale, randomness, hpRatio, result, now, deltaTime);
+
+        this._aiNormalize(result);
+        return result;
+    }
+
+    _aiTryFire(ai, actor, enemyActor, ndx, ndy, dist, combatType, isAttacking, onCooldown, fireReactionDelay, endgameCommit, meleeRange, spriteSize, retreatScale, aggressionScale, randomness, hpRatio, result, now, deltaTime) {
+        if (isAttacking) { ai.fireDelayActive = false; return; }
+        if (onCooldown) { ai.fireDelayActive = false; return; }
+
+        if (combatType === 'MELEE') {
+            if (dist > meleeRange) return;
+            if (!ai.fireDelayActive) {
+                ai.fireDelayActive = true;
+                ai.fireDelayTimer = fireReactionDelay;
+            }
+            ai.fireDelayTimer -= deltaTime;
+            if (ai.fireDelayTimer <= 0) {
+                const snap = this.snapTo8DirectionCardinalBias(ndx, ndy);
                 result.fire = true;
-                result.aimDx = ndx;
-                result.aimDy = ndy;
-                actor._aiLastFireTime = now;
+                result.aimDx = snap.dx;
+                result.aimDy = snap.dy;
+                ai.fireDelayActive = false;
+            }
+        } else if (combatType === 'AURA') {
+            const auraEngageRange = spriteSize * 2.5;
+            if (dist > auraEngageRange) return;
+            if (ai.auraPhase !== 'engage') return;
+            if (!ai.fireDelayActive) {
+                ai.fireDelayActive = true;
+                ai.fireDelayTimer = fireReactionDelay;
+            }
+            ai.fireDelayTimer -= deltaTime;
+            if (ai.fireDelayTimer <= 0) {
+                const snap = this.snapTo8DirectionCardinalBias(ndx, ndy);
+                result.fire = true;
+                result.aimDx = snap.dx;
+                result.aimDy = snap.dy;
+                ai.fireDelayActive = false;
+            }
+        } else if (combatType === 'PROJECTILE') {
+            const tooClose = spriteSize * 1.8 * retreatScale;
+            const maxShootDist = spriteSize * 7.0;
+            const idealMin = spriteSize * 3.0;
+            const canShoot = dist >= (endgameCommit ? meleeRange : tooClose) && dist <= maxShootDist;
+            if (!canShoot) { ai.fireDelayActive = false; return; }
+
+            const lineBlocked = this.isCombatLineBlocked(actor.x, actor.y, enemyActor.x, enemyActor.y);
+            if (lineBlocked) { ai.fireDelayActive = false; return; }
+
+            const pointBlankDanger = !endgameCommit && dist < idealMin && hpRatio < (0.5 * aggressionScale);
+            if (pointBlankDanger) return;
+
+            if (!ai.fireDelayActive) {
+                ai.fireDelayActive = true;
+                ai.fireDelayTimer = fireReactionDelay;
+            }
+            ai.fireDelayTimer -= deltaTime;
+            if (ai.fireDelayTimer <= 0) {
+                // Predictive leading: scale by difficulty (lower randomness = better leading)
+                const leadFactor = Math.max(0, 0.6 - randomness);
+                let aimX = ndx;
+                let aimY = ndy;
+                if (leadFactor > 0 && enemyActor.isMoving) {
+                    const enemyFacingVec = this._dirToVecStatic(enemyActor.facing);
+                    const enemySpeed = 200;
+                    const flightTime = dist / Math.max(1, BASE_PROJECTILE_SPEED);
+                    aimX = (enemyActor.x + enemyFacingVec.dx * enemySpeed * flightTime * leadFactor) - actor.x;
+                    aimY = (enemyActor.y + enemyFacingVec.dy * enemySpeed * flightTime * leadFactor) - actor.y;
+                    const aimLen = Math.hypot(aimX, aimY) || 1;
+                    aimX /= aimLen;
+                    aimY /= aimLen;
+                }
+                const snap = this.snapTo8DirectionCardinalBias(aimX, aimY);
+                result.fire = true;
+                result.aimDx = snap.dx;
+                result.aimDy = snap.dy;
+                ai.fireDelayActive = false;
             }
         }
+    }
 
-        if (randomnessFactor > 0 && (result.dx !== 0 || result.dy !== 0)) {
-            const jitter = randomnessFactor * 0.5;
-            result.dx += (Math.random() - 0.5) * jitter;
-            result.dy += (Math.random() - 0.5) * jitter;
-        }
+    _dirToVecStatic(dir) {
+        if (dir === 'N') return { dx: 0, dy: -1 };
+        if (dir === 'NE') return { dx: 1, dy: -1 };
+        if (dir === 'E') return { dx: 1, dy: 0 };
+        if (dir === 'SE') return { dx: 1, dy: 1 };
+        if (dir === 'S') return { dx: 0, dy: 1 };
+        if (dir === 'SW') return { dx: -1, dy: 1 };
+        if (dir === 'W') return { dx: -1, dy: 0 };
+        if (dir === 'NW') return { dx: -1, dy: -1 };
+        return { dx: 0, dy: 0 };
+    }
 
+    _aiNormalize(result) {
         const len = Math.hypot(result.dx, result.dy);
         if (len > 1) {
             result.dx /= len;
             result.dy /= len;
         }
-
-        return result;
     }
 
     startVictorySlide(result) {
@@ -3761,6 +4083,7 @@ class ArchonGame {
             loserActor.isMoving = false;
             loserActor.isAttacking = false;
             loserActor.currentHP = 0;
+            loserActor.hidden = true;
         }
 
         const toX = this.combat.contestedX;
@@ -3773,7 +4096,7 @@ class ArchonGame {
             toX,
             toY,
             timer: 0,
-            duration: 0.6,
+            duration: 0.9,
             result
         };
     }
@@ -3939,6 +4262,12 @@ class ArchonGame {
         updateAttackCooldown(lightActor);
         updateAttackCooldown(darkActor);
 
+        const pieceForActor = (actor) => {
+            if (actor === lightActor) return lightPiece;
+            if (actor === darkActor) return darkPiece;
+            return null;
+        };
+
         const startAttack = (actor, piece) => {
             if (!actor) return;
             if ((actor.attackCooldownLeft ?? 0) > 0) return;
@@ -3954,6 +4283,7 @@ class ArchonGame {
             actor.isMoving = false;
             actor.walkAnimTime = 0;
             actor.attackCooldownLeft = 1 / stats.attacksPerSecond;
+            this.playCombatAttackSound(piece);
         };
 
         const startAuraAttack = (actor) => {
@@ -3971,6 +4301,7 @@ class ArchonGame {
             actor.auraProgress = 0;
 
             actor.attackCooldownLeft = 0.5;
+            this.playCombatAttackSound(pieceForActor(actor));
         };
 
         const startPhoenixExplosion = (actor) => {
@@ -3987,6 +4318,7 @@ class ArchonGame {
             actor.auraFrameIndex = 0;
 
             actor.attackCooldownLeft = 0.5;
+            this.playCombatAttackSound(pieceForActor(actor));
         };
 
         const updateAuraAttack = (actor) => {
@@ -4262,6 +4594,37 @@ class ArchonGame {
                 return;
             }
 
+            // ── Corner stuck detection & recovery ──
+            if (!actor._stuck) {
+                actor._stuck = { timer: 0, lastX: actor.x, lastY: actor.y, recoveryTimer: 0, cooldown: 0 };
+            }
+            const stuck = actor._stuck;
+            stuck.cooldown = Math.max(0, stuck.cooldown - deltaTime);
+
+            if (stuck.recoveryTimer > 0) {
+                // During recovery: rotate movement 90° away from nearest wall
+                stuck.recoveryTimer -= deltaTime;
+                const cx = arena.ax + arena.arenaW / 2;
+                const cy = arena.ay + arena.arenaH / 2;
+                const awayX = cx - actor.x;
+                const awayY = cy - actor.y;
+                const awayLen = Math.hypot(awayX, awayY) || 1;
+                dx = awayX / awayLen;
+                dy = awayY / awayLen;
+            } else {
+                stuck.timer += deltaTime;
+                if (stuck.timer >= 0.4) {
+                    const moved = Math.hypot(actor.x - stuck.lastX, actor.y - stuck.lastY);
+                    if (moved < 3 && stuck.cooldown <= 0) {
+                        stuck.recoveryTimer = 0.5;
+                        stuck.cooldown = 1.5;
+                    }
+                    stuck.timer = 0;
+                    stuck.lastX = actor.x;
+                    stuck.lastY = actor.y;
+                }
+            }
+
             actor.isMoving = true;
             actor.walkAnimTime = (actor.walkAnimTime ?? 0) + deltaTime;
 
@@ -4333,9 +4696,10 @@ class ArchonGame {
                     if (this.keys['KeyD']) dx += 1;
                     if (this.keys['KeyW']) dy -= 1;
                     if (this.keys['KeyS']) dy += 1;
-                    if (this.doesSideUseGamepad('light')) {
-                        dx += gpStickX;
-                        dy += gpStickY;
+                    if (this.doesSideUseGamepad('light') && (gpStickX !== 0 || gpStickY !== 0)) {
+                        const gpSnap = this.snapTo8DirectionCardinalBias(gpStickX, gpStickY);
+                        dx += gpSnap.dx;
+                        dy += gpSnap.dy;
                     }
                     if (!this.touchState.light.active) {
                         this.touchState.light.snappedDx = 0;
@@ -4367,9 +4731,10 @@ class ArchonGame {
                     if (this.keys['ArrowRight']) dx += 1;
                     if (this.keys['ArrowUp']) dy -= 1;
                     if (this.keys['ArrowDown']) dy += 1;
-                    if (this.doesSideUseGamepad('dark')) {
-                        dx += gpStickX;
-                        dy += gpStickY;
+                    if (this.doesSideUseGamepad('dark') && (gpStickX !== 0 || gpStickY !== 0)) {
+                        const gpSnap = this.snapTo8DirectionCardinalBias(gpStickX, gpStickY);
+                        dx += gpSnap.dx;
+                        dy += gpSnap.dy;
                     }
                     if (!this.touchState.dark.active) {
                         this.touchState.dark.snappedDx = 0;
@@ -4457,7 +4822,7 @@ class ArchonGame {
             return defenderActor.currentHP <= 0;
         };
 
-        const projectileHitRadius = spriteSize * 0.35;
+        const projectileHitRadius = spriteSize * 0.4375;
         for (let i = this.combat.projectiles.length - 1; i >= 0; i--) {
             const p = this.combat.projectiles[i];
             const s = p.speed ?? BASE_PROJECTILE_SPEED;
@@ -4727,13 +5092,13 @@ class ArchonGame {
             return Math.min(2, Math.floor((t * 10) % 3));
         };
 
-        if (lightPiece) {
+        if (lightPiece && !combatLight.hidden) {
             this.drawCombatPiece(lightPiece, combatLight.x, combatLight.y, spriteSize, combatLight.facing, frameFromActor(combatLight));
             this.drawCombatOverlayForPiece(lightPiece, combatLight, spriteSize);
             this.ctx.fillStyle = '#fff';
             this.ctx.fillText(`Light: ${lightPiece.type}`, combatLight.x, combatLight.y + spriteSize / 2 + 22);
         }
-        if (darkPiece) {
+        if (darkPiece && !combatDark.hidden) {
             this.drawCombatPiece(darkPiece, combatDark.x, combatDark.y, spriteSize, combatDark.facing, frameFromActor(combatDark));
             this.drawCombatOverlayForPiece(darkPiece, combatDark, spriteSize);
             this.ctx.fillStyle = '#fff';
@@ -7449,7 +7814,7 @@ class ArchonGame {
 
                 if (!this.configState) {
                     this.configState = {
-                        playing: 'TWO_PLAYERS_BOTH_ON_KEYBOARD',
+                        playing: 'ONE_PLAYER_COMPUTER_DARK',
                         sound: 'SOUND_ON',
                         order: 'LIGHT_FIRST',
                         difficulty: 'ORIGINAL'
@@ -9343,6 +9708,32 @@ class ArchonGame {
         if (sx === -1 && sy === -1) return 'NW';
         if (sx === 0 && sy === -1) return 'N';
         return 'NE';
+    }
+
+    snapTo8DirectionCardinalBias(dx, dy) {
+        if (dx === 0 && dy === 0) return { dx: 0, dy: 0 };
+        const angle = Math.atan2(dy, dx);
+        const dirs = [
+            { dir: 'E',  a: 0,                dx: 1,  dy: 0  },
+            { dir: 'NE', a: -Math.PI / 4,     dx: 1,  dy: -1 },
+            { dir: 'N',  a: -Math.PI / 2,     dx: 0,  dy: -1 },
+            { dir: 'NW', a: -3 * Math.PI / 4, dx: -1, dy: -1 },
+            { dir: 'W',  a: Math.PI,          dx: -1, dy: 0  },
+            { dir: 'SW', a: 3 * Math.PI / 4,  dx: -1, dy: 1  },
+            { dir: 'S',  a: Math.PI / 2,      dx: 0,  dy: 1  },
+            { dir: 'SE', a: Math.PI / 4,      dx: 1,  dy: 1  }
+        ];
+        let best = dirs[0];
+        let bestScore = Infinity;
+        for (const d of dirs) {
+            let diff = Math.abs(angle - d.a);
+            if (diff > Math.PI) diff = 2 * Math.PI - diff;
+            const isCardinal = (d.dx === 0 || d.dy === 0);
+            const bias = isCardinal ? 0 : 0.18;
+            const score = diff + bias;
+            if (score < bestScore) { bestScore = score; best = d; }
+        }
+        return { dx: best.dx, dy: best.dy, dir: best.dir };
     }
 
     gridToCanvasCenter(x, y, layout) {
