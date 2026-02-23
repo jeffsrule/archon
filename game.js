@@ -376,7 +376,7 @@ const UNIT_STATS = {
         speed: 240,
         attackDamage: 0,
         attackDuration: 0.35,
-        attacksPerSecond: 1,
+        attacksPerSecond: 1.0,
         auraRadiusMultiplier: 0.85,
         auraDamagePerSecond: 5,
         canMoveWhileAttacking: true
@@ -390,7 +390,7 @@ const UNIT_STATS = {
         speed: 240,
         attackDamage: 0,
         attackDuration: 0.35,
-        attacksPerSecond: .6,
+        attacksPerSecond: 1.0,
         auraRadiusMultiplier: 0.85,
         auraDamagePerSecond: 5,
         canMoveWhileAttacking: false
@@ -598,6 +598,10 @@ const MOVE_SFX_BY_UNIT = {
     'Djinn':         'assets/audio/Fly Sound.m4a',
     'Shape Shifter': 'assets/audio/Fly Sound.m4a',
     'Phoenix':       'assets/audio/Phoenix Fly.m4a',
+    'Air Elemental':   'assets/audio/Fly Sound.m4a',
+    'Water Elemental': 'assets/audio/Fly Sound.m4a',
+    'Fire Elemental':  'assets/audio/Fly Sound.m4a',
+    'Earth Elemental': 'assets/audio/Fly Sound.m4a',
     'Wizard':    { strategy: 'assets/audio/Wizard Teleport Strategy.m4a',    combat: 'assets/audio/Knight Walk.m4a' },
     'Sorceress': { strategy: 'assets/audio/Wizard Teleport Strategy.m4a',    combat: 'assets/audio/Knight Walk.m4a' }
 };
@@ -1724,13 +1728,9 @@ class ArchonGame {
         if (delta === 0) return;
 
         if (delta > 0) {
-            piece.persistentDamage = prevDamage - 1;
+            piece.persistentDamage = Math.max(0, prevDamage - 1);
         } else {
-            piece.persistentDamage = prevDamage + 1;
-        }
-
-        if (piece.persistentDamage > maxHP) {
-            piece.persistentDamage = maxHP;
+            piece.persistentDamage = Math.min(prevDamage + 1, maxHP);
         }
 
         piece.lastPowerPointTriggerTurn = this.turnCounter;
@@ -4249,6 +4249,8 @@ class ArchonGame {
                 actor.auraTimer = 0;
                 actor.auraFrameIndex = 0;
                 actor.isAttacking = false;
+                // Stamp end-time so cooldown is enforced from animation end
+                actor.lastAuraEndTime = performance.now() / 1000;
             }
         };
 
@@ -4288,8 +4290,15 @@ class ArchonGame {
 
         const startAuraAttack = (actor) => {
             if (!actor) return;
-            if ((actor.attackCooldownLeft ?? 0) > 0) return;
             if (actor.isAttacking) return;
+            if (actor.auraPhase) return;
+
+            // Timestamp-based cooldown: must wait 1/attacksPerSecond after last aura ended
+            const piece = pieceForActor(actor);
+            const stats = this.getUnitStats(piece?.type, piece?.id);
+            const cooldown = stats?.attacksPerSecond ? (1 / stats.attacksPerSecond) : 1.0;
+            const now = performance.now() / 1000;
+            if ((actor.lastAuraEndTime ?? 0) > 0 && (now - actor.lastAuraEndTime) < cooldown) return;
 
             actor.isAttacking = true;
             actor.isMoving = false;
@@ -4300,14 +4309,20 @@ class ArchonGame {
             actor.auraPhaseTime = 0;
             actor.auraProgress = 0;
 
-            actor.attackCooldownLeft = 0.5;
-            this.playCombatAttackSound(pieceForActor(actor));
+            this.playCombatAttackSound(piece);
         };
 
         const startPhoenixExplosion = (actor) => {
             if (!actor) return;
-            if ((actor.attackCooldownLeft ?? 0) > 0) return;
             if ((actor.auraState ?? 'idle') !== 'idle') return;
+            if (actor.isAttacking) return;
+
+            // Timestamp-based cooldown: must wait 1/attacksPerSecond after last aura ended
+            const piece = pieceForActor(actor);
+            const stats = this.getUnitStats(piece?.type, piece?.id);
+            const cooldown = stats?.attacksPerSecond ? (1 / stats.attacksPerSecond) : 1.0;
+            const now = performance.now() / 1000;
+            if ((actor.lastAuraEndTime ?? 0) > 0 && (now - actor.lastAuraEndTime) < cooldown) return;
 
             actor.isAttacking = true;
             actor.isMoving = false;
@@ -4317,8 +4332,7 @@ class ArchonGame {
             actor.auraTimer = 0;
             actor.auraFrameIndex = 0;
 
-            actor.attackCooldownLeft = 0.5;
-            this.playCombatAttackSound(pieceForActor(actor));
+            this.playCombatAttackSound(piece);
         };
 
         const updateAuraAttack = (actor) => {
@@ -4348,6 +4362,8 @@ class ArchonGame {
                     actor.auraProgress = 0;
                     actor.auraPhase = null;
                     actor.auraPhaseTime = 0;
+                    // Stamp end-time so cooldown is enforced from animation end
+                    actor.lastAuraEndTime = performance.now() / 1000;
                 }
             }
         };
