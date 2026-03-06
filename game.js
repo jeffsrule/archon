@@ -873,6 +873,12 @@ class ArchonGame {
         this.aiProfile = AI_PROFILES.ORIGINAL;
         this.consecutiveNonAttackMoves = 0;
 
+        // Demo mode state
+        this.demoActive = false;
+        this.lastInputTime = performance.now();
+        this.demoIdleThreshold = 30000; // 30 seconds
+        this.preDemoGameMode = null;
+
         this.worldShiftMessage = null;
         this.worldShiftTimer = 0;
         this.worldShiftDuration = 4.0;
@@ -1751,6 +1757,11 @@ class ArchonGame {
     setupEventListeners() {
         // Keyboard events
         window.addEventListener('keydown', (e) => {
+            if (this.gameState === 'DEMO') {
+                this.exitDemoMode();
+                e.preventDefault();
+                return;
+            }
             if (this.gameState === 'WIN') {
                 this.returnToConfig();
                 e.preventDefault();
@@ -1762,6 +1773,12 @@ class ArchonGame {
                 return;
             }
             if (this.gameState === 'CONFIG') {
+                this.lastInputTime = performance.now();
+                if (e.code === 'Digit4') {
+                    this.enterDemoMode();
+                    e.preventDefault();
+                    return;
+                }
                 if (e.code === 'Space') {
                     this.enterStrategyFromConfig();
                     e.preventDefault();
@@ -1799,6 +1816,13 @@ class ArchonGame {
 
         // Mouse events
         this.canvas.addEventListener('mousedown', (e) => {
+            if (this.gameState === 'DEMO') {
+                this.exitDemoMode();
+                return;
+            }
+            if (this.gameState === 'CONFIG') {
+                this.lastInputTime = performance.now();
+            }
             this.handleCanvasMouseDown(e);
         });
 
@@ -1810,6 +1834,7 @@ class ArchonGame {
             if (this.gameState === 'CONFIG') {
                 this.configPointerX = pos.x;
                 this.configPointerY = pos.y;
+                this.lastInputTime = performance.now();
             }
         });
 
@@ -1856,6 +1881,11 @@ class ArchonGame {
         };
 
         this.canvas.addEventListener('touchstart', (e) => {
+            if (this.gameState === 'DEMO') {
+                e.preventDefault();
+                this.exitDemoMode();
+                return;
+            }
             if (this.gameState === 'WIN') {
                 e.preventDefault();
                 this.restartGame();
@@ -1877,6 +1907,7 @@ class ArchonGame {
             }
             if (this.gameState === 'CONFIG') {
                 e.preventDefault();
+                this.lastInputTime = performance.now();
                 const touch = e.changedTouches[0];
                 if (!touch) return;
                 const pos = getTouchCanvasPos(touch);
@@ -2298,6 +2329,12 @@ class ArchonGame {
     }
 
     updateConfig(deltaTime) {
+        // Demo mode idle timer
+        if (performance.now() - this.lastInputTime >= this.demoIdleThreshold) {
+            this.enterDemoMode();
+            return;
+        }
+
         const gpads = navigator.getGamepads ? navigator.getGamepads() : [];
         const gp = gpads[0] ?? gpads[1] ?? gpads[2] ?? gpads[3];
         if (!gp) return;
@@ -2309,6 +2346,7 @@ class ArchonGame {
         const pointerSpeed = 7;
 
         if (stickX !== 0 || stickY !== 0) {
+            this.lastInputTime = performance.now();
             this.configPointerX += stickX * pointerSpeed;
             this.configPointerY += stickY * pointerSpeed;
             this.configPointerX = Math.max(0, Math.min(this.width, this.configPointerX));
@@ -2319,6 +2357,7 @@ class ArchonGame {
 
         const aDown = gp.buttons[0]?.pressed ?? false;
         if (aDown && !this.configGamepadAPressed) {
+            this.lastInputTime = performance.now();
             const mx = this.configPointerX;
             const my = this.configPointerY;
 
@@ -2373,6 +2412,7 @@ class ArchonGame {
         this.stopSplashAudio();
         this.gameState = 'CONFIG';
         this.keys = {};
+        this.lastInputTime = performance.now();
 
         this.canvas.style.cursor = 'none';
         if (!this.configState) {
@@ -2542,6 +2582,7 @@ class ArchonGame {
         this.canvas.style.cursor = 'none';
         this.keys = {};
         this.winGamepadAPressed = false;
+        this.lastInputTime = performance.now();
     }
 
     renderWin() {
@@ -2669,6 +2710,102 @@ class ArchonGame {
         this.gameState = 'STRATEGY';
         this.keys = {};
         this.canvas.style.cursor = 'default';
+    }
+
+    enterDemoMode() {
+        this.demoActive = true;
+        this.preDemoGameMode = { ...this.gameMode };
+
+        this.stopMovementAudio();
+        clearTimeout(this.aiTurnTimer);
+        this.aiTurnTimer = null;
+        this.consecutiveNonAttackMoves = 0;
+
+        this.pieces = [
+            ...this.createInitialPiecesLight(),
+            ...this.createInitialPiecesDark()
+        ];
+        this.board = this.createEmptyBoard();
+        this.placePiecesOnBoard();
+        this.deadPieces = [];
+
+        this.usedSpells = { light: new Set(), dark: new Set() };
+        this.spellState = {
+            activeSpell: null,
+            phase: null,
+            casterPieceId: null,
+            sourcePieceId: null,
+            summonedElementalType: null
+        };
+        this.spellMenu.active = false;
+        this.spellMenu.message = null;
+        this.spellMenu.messageLine2 = null;
+        this.spellMenu.messageFadeIn = null;
+        this.spellMenu.messageTimer = 0;
+        this.summonVisual = null;
+        this.reviveState = null;
+        this.lastSummonedElementalType = null;
+        this.lastSummonedElementalSide = null;
+        this.aiSpellVisual = null;
+
+        this.selectedPiece = null;
+        this.lastCaptureAttempt = null;
+        this.combat = null;
+        this.strategyInputLocked = false;
+        this.turnCounter = 0;
+
+        this.worldShiftMessage = null;
+        this.worldShiftTimer = 0;
+        this.squareFadeActive = false;
+        this.squareFadeFrom = null;
+        this.squareFadeTo = null;
+
+        this.illegalFlash = null;
+        this.boardCursor = { x: 4, y: 4, moveCooldown: 0 };
+        this.winningSide = null;
+
+        const order = this.configState?.order ?? 'LIGHT_FIRST';
+        this.applyBoardConfigurationForOrder(order);
+        this.boardLayout = null;
+
+        this.gameMode.computerPlaysLight = true;
+        this.gameMode.computerPlaysDark = true;
+
+        const diff = this.configState?.difficulty ?? 'ORIGINAL';
+        this.aiProfile = (diff && AI_PROFILES[diff]) ? AI_PROFILES[diff] : AI_PROFILES.ORIGINAL;
+
+        this.gameState = 'DEMO';
+        this.keys = {};
+        this.canvas.style.cursor = 'default';
+
+        console.log('[DEMO DEBUG] enterDemoMode → currentSide:', this.currentSide, '| computerPlaysLight:', this.gameMode.computerPlaysLight, '| computerPlaysDark:', this.gameMode.computerPlaysDark, '| strategyInputLocked:', this.strategyInputLocked);
+        this.scheduleAITurnIfNeeded();
+    }
+
+    exitDemoMode() {
+        this.demoActive = false;
+        this.stopMovementAudio();
+        clearTimeout(this.aiTurnTimer);
+        this.aiTurnTimer = null;
+
+        if (this.preDemoGameMode) {
+            this.gameMode.computerPlaysLight = this.preDemoGameMode.computerPlaysLight;
+            this.gameMode.computerPlaysDark = this.preDemoGameMode.computerPlaysDark;
+            this.preDemoGameMode = null;
+        } else {
+            this.gameMode.computerPlaysLight = false;
+            this.gameMode.computerPlaysDark = false;
+        }
+
+        this.combat = null;
+        this.winningSide = null;
+        this.selectedPiece = null;
+        this.strategyInputLocked = false;
+
+        this.gameState = 'CONFIG';
+        this.canvas.style.cursor = 'none';
+        this.keys = {};
+        this.lastInputTime = performance.now();
     }
 
     doesSideUseGamepad(side) {
@@ -2802,7 +2939,25 @@ class ArchonGame {
     }
     
     update(deltaTime) {
+        // Gamepad exit for demo mode
+        if (this.gameState === 'DEMO') {
+            const gpads = navigator.getGamepads ? navigator.getGamepads() : [];
+            const gp = gpads[0] ?? gpads[1] ?? gpads[2] ?? gpads[3];
+            if (gp) {
+                for (let i = 0; i < gp.buttons.length; i++) {
+                    if (gp.buttons[i]?.pressed) {
+                        this.exitDemoMode();
+                        return;
+                    }
+                }
+            }
+        }
+
         if (this.gameState === 'WIN') {
+            if (this.demoActive) {
+                this.exitDemoMode();
+                return;
+            }
             this.updateWin(deltaTime);
             return;
         }
@@ -2812,7 +2967,7 @@ class ArchonGame {
             this.updateConfig(deltaTime);
         } else if (this.gameState === 'COMBAT') {
             this.updateCombat(deltaTime);
-        } else {
+        } else if (this.gameState === 'DEMO' || this.gameState === 'STRATEGY') {
             this.updateStrategy(deltaTime);
         }
         
@@ -3150,6 +3305,10 @@ class ArchonGame {
                 this.stopMovementAudio();
                 clearTimeout(this.aiTurnTimer);
                 this.aiTurnTimer = null;
+                if (this.demoActive) {
+                    this.exitDemoMode();
+                    return;
+                }
                 this.strategyInputLocked = true;
                 this.gameState = 'WIN';
                 this.winningSide = winner;
@@ -5004,6 +5163,19 @@ class ArchonGame {
             this.drawTestPattern();
             if (this.aiSpellVisual) this.renderAISpellVisual();
         }
+
+        // Demo mode overlay
+        if (this.demoActive && (this.gameState === 'DEMO' || this.gameState === 'COMBAT')) {
+            this.ctx.save();
+            const family = this.appleFontLoaded ? 'AppleII' : 'monospace';
+            this.ctx.font = `18px ${family}`;
+            this.ctx.textAlign = 'center';
+            this.ctx.textBaseline = 'bottom';
+            const pulse = 0.45 + 0.55 * Math.abs(Math.sin(performance.now() / 1000));
+            this.ctx.fillStyle = `rgba(255, 255, 255, ${pulse.toFixed(2)})`;
+            this.ctx.fillText('DEMO MODE \u2013 PRESS ANY KEY TO RETURN', this.width / 2, this.height - 12);
+            this.ctx.restore();
+        }
         
         // Draw gamepad debug info
         this.drawGamepadDebug();
@@ -6504,7 +6676,7 @@ class ArchonGame {
             this.strategyCanvasStyleHeight = this.canvas.style.height;
         }
         this.resetCombatInputState();
-        this.gameState = 'STRATEGY';
+        this.gameState = this.demoActive ? 'DEMO' : 'STRATEGY';
         this.strategyInputLocked = false;
         this.selectedPiece = null;
         this.endTurn();
@@ -8012,11 +8184,12 @@ class ArchonGame {
     scheduleAITurnIfNeeded() {
         clearTimeout(this.aiTurnTimer);
         this.aiTurnTimer = null;
-        if (this.gameState !== 'STRATEGY') return;
+        if (this.gameState !== 'STRATEGY' && this.gameState !== 'DEMO') return;
         if (!this.isAITurn()) return;
+        console.log('[DEMO DEBUG] scheduleAITurnIfNeeded → scheduling AI for', this.currentSide);
         this.aiTurnTimer = setTimeout(() => {
             this.aiTurnTimer = null;
-            if (this.gameState === 'STRATEGY' && this.isAITurn()) {
+            if ((this.gameState === 'STRATEGY' || this.gameState === 'DEMO') && this.isAITurn()) {
                 this.performStrategyAITurn();
             }
         }, 500);
@@ -8366,7 +8539,7 @@ class ArchonGame {
             if (sv.timer >= 1.0) {
                 this.aiSpellVisual = null;
                 this.selectedPiece = null;
-                if (this.gameState === 'STRATEGY') {
+                if (this.gameState === 'STRATEGY' || this.gameState === 'DEMO') {
                     this.strategyInputLocked = false;
                 }
             }
@@ -8610,6 +8783,10 @@ class ArchonGame {
                 this.stopMovementAudio();
                 clearTimeout(this.aiTurnTimer);
                 this.aiTurnTimer = null;
+                if (this.demoActive) {
+                    this.exitDemoMode();
+                    return;
+                }
                 this.strategyInputLocked = true;
                 this.gameState = 'WIN';
                 this.winningSide = winner;
@@ -8782,10 +8959,19 @@ class ArchonGame {
     }
 
     performStrategyAITurn() {
-        if (this.gameState !== 'STRATEGY') return;
-        if (this.strategyInputLocked) return;
-        if (this.aiSpellVisual) return;
-        if (this.pieces.some(p => p.state === 'MOVING')) return;
+        if (this.gameState !== 'STRATEGY' && this.gameState !== 'DEMO') return;
+        // If temporarily blocked, re-schedule instead of silently dying
+        if (this.strategyInputLocked || this.aiSpellVisual || this.pieces.some(p => p.state === 'MOVING')) {
+            console.log('[DEMO DEBUG] performStrategyAITurn blocked — retrying in 300ms', { locked: this.strategyInputLocked, spellVis: !!this.aiSpellVisual, moving: this.pieces.some(p => p.state === 'MOVING') });
+            clearTimeout(this.aiTurnTimer);
+            this.aiTurnTimer = setTimeout(() => {
+                this.aiTurnTimer = null;
+                if ((this.gameState === 'STRATEGY' || this.gameState === 'DEMO') && this.isAITurn()) {
+                    this.performStrategyAITurn();
+                }
+            }, 300);
+            return;
+        }
 
         const allMoves = this.generateAllLegalMovesForSide(this.currentSide);
         if (allMoves.length === 0) return;
@@ -9446,8 +9632,10 @@ class ArchonGame {
         this.consecutiveNonAttackMoves = (this.consecutiveNonAttackMoves ?? 0) + 1;
         this.turnCounter = (this.turnCounter ?? 0) + 1;
         this.selectedPiece = null;
+        this.strategyInputLocked = false;
         const prevSide = this.currentSide;
         this.currentSide = this.currentSide === 'light' ? 'dark' : 'light';
+        console.log('[DEMO DEBUG] endTurn → side now:', this.currentSide, '| isAI:', this.isAITurn(), '| gameState:', this.gameState);
         this.playTurnChangeSound();
 
         const firstMover = this.boardFirstMover ?? 'light';
@@ -9463,6 +9651,10 @@ class ArchonGame {
             this.aiTurnTimer = null;
             clearTimeout(this.teleportSoundTimer);
             this.teleportSoundTimer = null;
+            if (this.demoActive) {
+                this.exitDemoMode();
+                return;
+            }
             this.strategyInputLocked = true;
             this.gameState = 'WIN';
             this.winningSide = winner;
@@ -9639,7 +9831,7 @@ class ArchonGame {
         const movingPiece = this.pieces.find(p => p.state === 'MOVING' && this.movementAudioCache[p.type]);
         if (movingPiece) {
             this.startMovementAudio(movingPiece.type);
-        } else if (this.activeMovementAudio && this.gameState === 'STRATEGY' && !this.teleportSoundTimer) {
+        } else if (this.activeMovementAudio && (this.gameState === 'STRATEGY' || this.gameState === 'DEMO') && !this.teleportSoundTimer) {
             this.stopMovementAudio();
         }
     }
